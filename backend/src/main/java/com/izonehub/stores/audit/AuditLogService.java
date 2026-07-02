@@ -1,0 +1,2 @@
+package com.izonehub.stores.audit;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
+@Service public class AuditLogService{private final AuditLogRepository repo;public AuditLogService(AuditLogRepository repo){this.repo=repo;} @Transactional public AuditLog record(String entityType,String entityId,String action,String oldState,String newState,String performedBy){return repo.save(new AuditLog(entityType,entityId,action,oldState,newState,performedBy));}}

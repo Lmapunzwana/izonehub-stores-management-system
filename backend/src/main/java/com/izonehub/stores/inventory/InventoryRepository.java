@@ -1,0 +1,1 @@
+package com.izonehub.stores.inventory;import com.izonehub.stores.item.Item;import com.izonehub.stores.store.Store;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*; public interface InventoryRepository extends JpaRepository<StoreInventory,UUID>{Optional<StoreInventory> findByStoreAndItem(Store store,Item item);}
