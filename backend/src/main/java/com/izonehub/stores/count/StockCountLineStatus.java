@@ -1,0 +1,3 @@
+package com.izonehub.stores.count;
+
+public enum StockCountLineStatus { PENDING_COUNT, ZERO_VARIANCE_CONFIRMED, VARIANCE_REQUIRES_ACTION, RECOUNT_REQUIRED, ADJUSTMENT_RAISED }
