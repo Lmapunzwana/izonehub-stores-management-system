@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     environment: { POSTGRES_DB: stores, POSTGRES_USER: stores, POSTGRES_PASSWORD: stores }
     ports: ["5432:5432"]
     volumes: ["postgres-data:/var/lib/postgresql/data"]
