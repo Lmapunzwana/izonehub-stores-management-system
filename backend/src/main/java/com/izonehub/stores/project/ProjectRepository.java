@@ -1,0 +1,1 @@
+package com.izonehub.stores.project;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*; public interface ProjectRepository extends JpaRepository<Project,UUID>{Optional<Project> findByCode(String code);}

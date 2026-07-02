@@ -1,0 +1,1 @@
+{"scripts":{"test":"npm --prefix frontend test","build":"npm --prefix frontend run build"},"workspaces":["frontend"]}

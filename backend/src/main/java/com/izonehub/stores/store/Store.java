@@ -1,0 +1,3 @@
+package com.izonehub.stores.store;
+import com.izonehub.stores.common.BaseEntity;import com.izonehub.stores.user.AppUser;import jakarta.persistence.*;
+@Entity public class Store extends BaseEntity{@Column(nullable=false,unique=true) private String name;@Enumerated(EnumType.STRING)@Column(nullable=false) private StoreType type;@Column(nullable=false) private String location;@ManyToOne(fetch=FetchType.LAZY) private AppUser manager;protected Store(){} public Store(String name,StoreType type,String location,AppUser manager){this.name=name;this.type=type;this.location=location;this.manager=manager;} public String getName(){return name;} public StoreType getType(){return type;} public String getLocation(){return location;} public AppUser getManager(){return manager;}}
