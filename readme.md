@@ -7,6 +7,7 @@ Phase 3 movement-flow foundation for the stores management system, building on t
 - `backend/` — Spring Boot 3.x, Java 21, PostgreSQL, Flyway, Spring Security, JWT, CQRS-oriented command services, incoming stock, GRN variance detection, overdue expected receipts, low-stock notifications, material requests, dispatch, receipt, and discrepancy foundations.
 - `frontend/` — React 18, TypeScript, Ant Design 5, TanStack Query, Zustand-ready shell.
 - `k3s/` — starter Kubernetes manifests for k3s deployments.
+- `docs/` — backup, restore, and security hardening runbooks.
 
 ## Local development
 
