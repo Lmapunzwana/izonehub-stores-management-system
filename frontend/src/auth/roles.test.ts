@@ -1,0 +1,1 @@
+import {describe,expect,it} from 'vitest';import {canAccessAdmin} from './roles';describe('role guards',()=>{it('limits admin routes to system administrators',()=>{expect(canAccessAdmin('SYSTEM_ADMINISTRATOR')).toBe(true);expect(canAccessAdmin('FINANCE')).toBe(false);});});

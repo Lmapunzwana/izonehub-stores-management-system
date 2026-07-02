@@ -1,0 +1,1 @@
+package com.izonehub.stores.auth;import org.springframework.stereotype.Component;@Component public class PasswordPolicy{public boolean isValid(String p){return p!=null&&p.length()>=8&&p.matches(".*\\d.*")&&p.matches(".*[^A-Za-z0-9].*");}}

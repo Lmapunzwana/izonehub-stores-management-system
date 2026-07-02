@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/stores}
+    username: ${SPRING_DATASOURCE_USERNAME:stores}
+    password: ${SPRING_DATASOURCE_PASSWORD:stores}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+app:
+  jwt:
+    issuer: izonehub-stores
+    secret: ${JWT_SECRET:dev-only-secret-key-must-be-overridden-and-longer-than-32-bytes}
+    access-token-minutes: 480
+    refresh-token-days: 7
+  security:
+    max-failed-logins: 5

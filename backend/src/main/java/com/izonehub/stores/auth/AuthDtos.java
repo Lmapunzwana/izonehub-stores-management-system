@@ -1,0 +1,1 @@
+package com.izonehub.stores.auth;import jakarta.validation.constraints.*; public final class AuthDtos{private AuthDtos(){} public record LoginRequest(@Email String email,@NotBlank String password){} public record LoginResponse(String accessToken,boolean forcePasswordChange){} public record ChangePasswordRequest(@NotBlank String currentPassword,@NotBlank String newPassword){} }
