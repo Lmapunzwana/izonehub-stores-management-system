@@ -39,6 +39,20 @@ public class InventoryCommandService {
         return saved;
     }
 
+    @Transactional
+    public StoreInventory completeTransit(Store store, Item item, BigDecimal quantity) {
+        StoreInventory inventory = findOrCreate(store, item);
+        inventory.completeTransit(quantity);
+        return repository.save(inventory);
+    }
+
+    @Transactional
+    public StoreInventory freezeTransitVariance(Store store, Item item, BigDecimal quantity) {
+        StoreInventory inventory = findOrCreate(store, item);
+        inventory.freezeTransitVariance(quantity);
+        return repository.save(inventory);
+    }
+
     private StoreInventory findOrCreate(Store store, Item item) {
         return repository.findByStoreAndItem(store, item).orElseGet(() -> new StoreInventory(store, item));
     }

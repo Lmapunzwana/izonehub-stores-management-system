@@ -74,12 +74,17 @@ public class StoreInventory extends BaseEntity {
     }
 
     public void receiveFromTransit(BigDecimal quantity) {
+        completeTransit(quantity);
+        quantityOnHand = quantityOnHand.add(quantity);
+        touch();
+    }
+
+    public void completeTransit(BigDecimal quantity) {
         requirePositive(quantity);
         if (quantityInTransit.compareTo(quantity) < 0) {
             throw new IllegalStateException("Insufficient in-transit stock");
         }
         quantityInTransit = quantityInTransit.subtract(quantity);
-        quantityOnHand = quantityOnHand.add(quantity);
         touch();
     }
 

@@ -28,6 +28,18 @@ class StoreInventoryTest {
     }
 
     @Test
+    void canCompleteTransitWithoutReturningStockToSource() {
+        StoreInventory inventory = new StoreInventory(null, null);
+        inventory.receiveUsable(new BigDecimal("10"));
+        inventory.dispatch(new BigDecimal("4"));
+
+        inventory.completeTransit(new BigDecimal("3"));
+
+        assertThat(inventory.getQuantityOnHand()).isEqualByComparingTo("6");
+        assertThat(inventory.getQuantityInTransit()).isEqualByComparingTo("1");
+    }
+
+    @Test
     void cannotDispatchMoreThanOnHand() {
         StoreInventory inventory = new StoreInventory(null, null);
 
