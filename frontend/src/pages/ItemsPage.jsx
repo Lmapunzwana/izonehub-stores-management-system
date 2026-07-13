@@ -25,9 +25,6 @@ export default function ItemsPage() {
     category: "All Categories",
     statusFilter: "All Statuses",
   });
-  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consumeItem, setConsumeItem] = useState(null);
-  const [consumeQty, setConsumeQty] = useState("");
 
   function onAdd() {
     navigate("/items/add-item");
@@ -51,19 +48,7 @@ export default function ItemsPage() {
     setAppliedFilters({ search, category, statusFilter });
   }
 
-  async function handleConsume(e) {
-    e.preventDefault();
-    if (!consumeItem || !consumeQty) return;
-    try {
-      await consumeItems(defaultStoreId, [{ itemId: consumeItem.id, quantity: Number(consumeQty) }]);
-      setConsumeModalOpen(false);
-      setConsumeItem(null);
-      setConsumeQty("");
-    } catch (err) {
-      console.error(err);
-      showAlert({ title: "Error", message: "Failed to consume item. " + err.message, type: "danger" });
-    }
-  }
+
 
   const visibleItems = useMemo(() => {
     return items.filter((i) => {
@@ -168,18 +153,6 @@ export default function ItemsPage() {
                       <ShoppingCart size={16} />
                       Reorder
                     </button>
-                  ) : (user?.roles?.includes("SITE_STORE_MANAGER") || user?.roles?.includes("SYSTEM_ADMINISTRATOR") || user?.roles?.includes("CENTRAL_STORE_MANAGER")) && item.available > 0 ? (
-                    <button
-                      type="button"
-                      className="ch-btn ch-btn--primary"
-                      onClick={() => {
-                        setConsumeItem(item);
-                        setConsumeModalOpen(true);
-                      }}
-                      title="Consume items from physical inventory"
-                    >
-                      Consume
-                    </button>
                   ) : (
                     <span style={{ color: "#64748b", fontSize: 13 }}>—</span>
                   )}
@@ -197,46 +170,6 @@ export default function ItemsPage() {
         </table>
       </div>
 
-      {consumeModalOpen && consumeItem && (
-        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
-          <div className="app-modal" style={{ maxWidth: 400, padding: 24, textAlign: "left" }}>
-            <h3 style={{ marginTop: 0 }}>Consume {consumeItem.name}</h3>
-            <p style={{ color: "#64748b", fontSize: 14 }}>
-              Available in physical inventory: <strong>{consumeItem.available}</strong>
-            </p>
-            <form onSubmit={handleConsume}>
-              <div className="form-group">
-                <label>Quantity Consumed</label>
-                <input
-                  type="number"
-                  className="input"
-                  min="1"
-                  max={consumeItem.available}
-                  step="any"
-                  required
-                  value={consumeQty}
-                  onChange={(e) => setConsumeQty(e.target.value)}
-                />
-              </div>
-              <div className="modal-actions" style={{ marginTop: 24, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => {
-                    setConsumeModalOpen(false);
-                    setConsumeItem(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Confirm Consumption
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

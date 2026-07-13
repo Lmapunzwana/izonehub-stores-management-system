@@ -8,6 +8,7 @@ import { apiFetch } from '../api'
 const links = [
   { label: 'Dashboard', path: '/', badge: null },
   { label: 'Items', path: '/items', badge: 'items' },
+  { label: 'Consumption', path: '/consumption', badge: null, roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER', 'SITE_STORE_MANAGER'] },
   { label: 'Expected Receipts', path: '/expected-receipts', badge: 'expectedReceipts' },
   { label: 'Material Requests', path: '/material-requests', badge: 'materialRequests' },
   { label: 'Issues & Dispatch', path: '/dispatch', badge: 'dispatch', roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },

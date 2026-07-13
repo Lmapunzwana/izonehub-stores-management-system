@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import ItemsPage from "./pages/ItemsPage";
+import ConsumptionPage from "./pages/ConsumptionPage";
 import ExpectedReceiptsPage from "./pages/ExpectedReceiptsPage";
 import MaterialRequestsPage from "./pages/MaterialRequestsPage";
 import AddItemToRequestPage from "./pages/AddItemToRequestPage";
@@ -41,6 +42,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/items" element={<ItemsPage />} />
+              <Route path="/consumption" element={<ConsumptionPage />} />
               <Route path="/items/add-item" element={<AddItemPage />} />
               <Route path="/expected-receipts" element={<ExpectedReceiptsPage />} />
               <Route path="/material-requests" element={<MaterialRequestsPage />} />
