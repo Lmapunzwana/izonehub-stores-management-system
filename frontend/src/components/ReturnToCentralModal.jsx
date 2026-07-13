@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
-import { useAppData } from "../../context/AppDataContext";
-import { useAppModal } from "../../context/ModalContext";
-import { apiFetch } from "../../api";
+import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
+import { apiFetch } from "../api";
 
 export default function ReturnToCentralModal({ isOpen, onClose, onSuccess }) {
   const { stores, items, projects, user } = useAppData();
