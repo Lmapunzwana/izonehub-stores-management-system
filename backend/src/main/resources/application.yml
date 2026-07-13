@@ -8,11 +8,44 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+
 app:
+  company:
+    name: ${COMPANY_NAME:New Sahara Ventures (Pvt) Ltd}
+    address-line1: ${COMPANY_ADDRESS_LINE1:43 Coull Drive, Mount Pleasant, Harare}
+    address-line2: ${COMPANY_ADDRESS_LINE2:Zimbabwe}
+    phone: ${COMPANY_PHONE:+263 242 301 279 / +263 773 436 391}
+    email: ${COMPANY_EMAIL:info@newsaharaventures.com}
+    website: ${COMPANY_WEBSITE:www.newsaharaventures.com}
+    # Optional classpath resource, e.g. static/logo.png. Leave blank to render a text wordmark instead.
+    logo-classpath: ${COMPANY_LOGO_CLASSPATH:logo.jpeg}
+    brand-color: ${COMPANY_BRAND_COLOR:#1F7A3D}
+
   jwt:
     issuer: izonehub-stores
     secret: ${JWT_SECRET:dev-only-secret-key-must-be-overridden-and-longer-than-32-bytes}
-    access-token-minutes: 480
+    access-token-minutes: 15        # short-lived; refresh token extends the session
     refresh-token-days: 7
+
   security:
     max-failed-logins: 5
+    # Rate limit: max attempts on /api/auth/login per IP before 429
+    login-rate-limit-attempts: 10
+    login-rate-limit-minutes: 15
+    # Cookie flags
+    cookie-secure: ${COOKIE_SECURE:true}   # set false only in local http dev
+    cookie-domain: ${COOKIE_DOMAIN:}       # leave blank to use request host
+    cookie-same-site: Strict
+
+  # Content-Security-Policy — tightened: only own origin + CDN for fonts/icons
+  # Adjust script-src if you add third-party analytics later.
+  csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health   # only /actuator/health is exposed publicly
+  endpoint:
+    health:
+      show-details: never

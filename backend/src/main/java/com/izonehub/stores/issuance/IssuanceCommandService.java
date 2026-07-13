@@ -21,9 +21,9 @@ public class IssuanceCommandService {
 
     @Transactional
     public MaterialIssueVoucher confirm(MaterialIssueVoucher miv) {
-        projects.findByCode(miv.getProjectCode()).ifPresent(project -> {
-            if (!project.isActive()) throw new IllegalStateException("Cannot issue material against a closed project");
-        });
+        if (!miv.getProject().isActive()) {
+            throw new IllegalStateException("Cannot issue material against a closed project");
+        }
         miv.getLines().forEach(line -> inventory.dispatch(miv.getStore(), line.getItem(), line.getIssuedQuantity()));
         return mivs.save(miv);
     }

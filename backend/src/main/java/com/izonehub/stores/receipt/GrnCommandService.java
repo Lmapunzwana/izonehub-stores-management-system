@@ -1,6 +1,8 @@
 package com.izonehub.stores.receipt;
 
 import com.izonehub.stores.inventory.InventoryCommandService;
+import com.izonehub.stores.movement.Discrepancy;
+import com.izonehub.stores.movement.DiscrepancyRepository;
 import com.izonehub.stores.notification.NotificationService;
 import com.izonehub.stores.notification.NotificationType;
 import com.izonehub.stores.user.AppUser;
@@ -13,14 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class GrnCommandService {
     private final ExpectedReceiptRepository expectedReceipts;
     private final GoodsReceivedNoteRepository grns;
+    private final DiscrepancyRepository discrepancies;
     private final InventoryCommandService inventory;
     private final NotificationService notifications;
     private final UserRepository users;
 
     public GrnCommandService(ExpectedReceiptRepository expectedReceipts, GoodsReceivedNoteRepository grns,
+                             DiscrepancyRepository discrepancies,
                              InventoryCommandService inventory, NotificationService notifications, UserRepository users) {
         this.expectedReceipts = expectedReceipts;
         this.grns = grns;
+        this.discrepancies = discrepancies;
         this.inventory = inventory;
         this.notifications = notifications;
         this.users = users;
@@ -43,6 +48,13 @@ public class GrnCommandService {
         expectedReceipts.save(expectedReceipt);
         GoodsReceivedNote grn = grns.save(new GoodsReceivedNote(referenceFor(expectedReceipt), expectedReceipt, receivedBy,
                 hasVariance ? GrnStatus.VARIANCE : GrnStatus.CLEAN));
+        
+        expectedReceipt.getLines().forEach(line -> {
+            if (line.hasVariance()) {
+                discrepancies.save(new Discrepancy(grn, line.getItem(), line.getExpectedQuantity(), line.getReceivedQuantity()));
+            }
+        });
+
         if (hasVariance) {
             notifyProcurement("GRN variance on " + grn.getReferenceNumber());
         }
@@ -56,7 +68,7 @@ public class GrnCommandService {
 
     private void notifyProcurement(String message) {
         users.findAll().stream()
-                .filter(user -> user.getRole() == Role.PROCUREMENT_OFFICER && user.isActive())
+                .filter(user -> user.getRoles().contains(Role.CENTRAL_STORE_MANAGER) && user.isActive())
                 .forEach(user -> notifications.notify(user, NotificationType.GRN_VARIANCE, message));
     }
 }

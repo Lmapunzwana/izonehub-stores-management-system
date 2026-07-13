@@ -34,6 +34,10 @@ public class StockCountLine extends BaseEntity {
     }
 
     void attachTo(StockCount stockCount) { this.stockCount = stockCount; }
+    public Item getItem() { return item; }
+    public BigDecimal getSystemQuantitySnapshot() { return systemQuantitySnapshot; }
+    public BigDecimal getPhysicalQuantity() { return physicalQuantity; }
+    public BigDecimal getVarianceQuantity() { return varianceQuantity; }
     public StockCountLineStatus getStatus() { return status; }
 
     public void enterPhysicalCount(BigDecimal physicalQuantity) {

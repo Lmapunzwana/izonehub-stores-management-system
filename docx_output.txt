@@ -1,0 +1,410 @@
+New Sahara Ventures
+Stores Project Information Request and Domain Registration Detail
+A single point of contact with authority to answer business-related questions and sign off on User Acceptance Testing (UAT).
+Petronelah Majaja
+A list of all project/site store locations.
+Athlone and Head Office
+Site 1- SABI
+Site 2- SUNPORTS
+Site 3-Murombedzi
+An employee list for initial user setup, including:
+Full Name
+Role
+Assigned Role
+Email Address
+Petronelah Majaja
+Admin and Finance
+Administrator
+petronelah@newsaharaventures.com
+Artwell Kanjanda
+Engineer
+Site Store Manager
+artwell@newsaharaventures.com
+Benedict Kwashira
+Engineer
+Site Store Manager
+benedict@newsaharaventures.com
+Ronald Tsatsi
+Engineer
+Site Store Manager
+ronald@newsaharaventures.com
+A complete item master containing:
+Item codes
+Units of measure
+Item categories
+A list of all active project codes.
+LINK Excel.SheetBinaryMacroEnabled.12 "C:\\Users\\Asus\\Downloads\\ItemListingReport (2).xls" "ItemListingReport (2)!R9C1:R96C4" \a \f 5 \h  \* MERGEFORMAT
+Code
+Description
+Category
+Active
+NSV001
+Solar panels - Jinko
+Each
+Yes
+NSV001A
+Solar Panels- JA Solar
+Each
+Yes
+NSV002
+100mm x 50mm x 38600mm Angle iron crossarm
+Each
+Yes
+NSV003
+100x50mmx2200mm Angle iron crossarm
+Each
+Yes
+NSV004
+Round poles
+Each
+Yes
+NSV005
+Huawei Battery 2.16KWhr
+Each
+Yes
+NSV006
+Deye UN3480 Lithium Ion Battery 10.2KWhr
+Each
+Yes
+NSV007
+Solar Hybrid Inverters 6KW
+Each
+Yes
+NSV008
+Solar Hybrid Inverters 8KW
+Each
+Yes
+NSV009
+Gas Tank
+Each
+Yes
+NSV010
+A Frames
+Each
+Yes
+NSV011
+Foundation Bolts
+Each
+Yes
+NSV012
+Crossarm joint joiners large size
+Each
+Yes
+NSV013
+Crossarm joint joiners small size
+Each
+Yes
+NSV014
+Anchor Brackets
+Each
+Yes
+NSV015
+Armoured Cable 3x 300+1x150mm
+Drum
+Yes
+NSV016
+Armoured Cable 3x 300+1x150mm
+Drum
+Yes
+NSV017
+OPGW
+Drum
+Yes
+NSV018
+Comms Cable
+Drum
+Yes
+NSV019
+Rails
+Each
+Yes
+NSV020
+Bolts medium size
+Each
+Yes
+NSV021
+Bolts Large size
+Each
+Yes
+NSV022
+M20 Washers
+Each
+Yes
+NSV023
+M20 Nuts
+Each
+Yes
+NSV024
+Small Bolts
+Each
+Yes
+NSV025
+Cables
+Pcs
+Yes
+NSV026
+Cables ties
+Pcs
+Yes
+NSV027
+Cable lug 35*12mm
+Pcs
+Yes
+NSV028
+Cable lug 2.5*8mm
+Pcs
+Yes
+NSV029
+MCB Circuit breaker
+Pcs
+Yes
+NSV030
+Nail in Anchor M8*60
+Pcs
+Yes
+NSV031
+Anchor M6*40
+Pcs
+Yes
+NSV032
+3m Scotch Vinyl Electrical tape
+Pcs
+Yes
+NSV033
+Utility cutter
+Pcs
+Yes
+NSV034
+Masonry Drill 6.0mm
+Pcs
+Yes
+NSV035
+Masonry Drill 8mm
+Pcs
+Yes
+NSV036
+Screw driver
+Pcs
+Yes
+NSV037
+Screw driver
+Pcs
+Yes
+NSV038
+Screw driver
+Pcs
+Yes
+NSV039
+Screw driver
+Pcs
+Yes
+NSV040
+Screw driver
+Pcs
+Yes
+NSV041
+Screw driver
+Pcs
+Yes
+NSV042
+Screw driver
+Pcs
+Yes
+NSV043
+Ratchets
+Pcs
+Yes
+NSV044
+Allen keys
+Set
+Yes
+NSV045
+Side cutter
+Pcs
+Yes
+NSV046
+Long nose
+Pcs
+Yes
+NSV047
+Shifting
+Pcs
+Yes
+NSV048
+Pliers
+Pcs
+Yes
+NSV049
+Drill
+Pcs
+Yes
+NSV050
+Grinder
+Pcs
+Yes
+NSV051
+Cutting Disk 115mm
+Pcs
+Yes
+NSV052
+Tape measure 5x25mm
+Pcs
+Yes
+NSV053
+Digital Multimeter
+Pcs
+Yes
+NSV054
+Hammer
+Pcs
+Yes
+NSV055
+Hacksaw blade
+Pcs
+Yes
+NSV056
+16-240mm hydraulic crimping tool
+Pcs
+Yes
+NSV057
+AC Cable 100meters
+Each
+Yes
+NSV058
+PV Cable (black)3x3000m
+Drum
+Yes
+NSV059
+PV Cable (red)1x3000m
+Drum
+Yes
+NSV060
+Pv cable
+Drum
+Yes
+NSV061
+Clamps
+box
+Yes
+NSV062
+Class 3-Stitch x2000
+box
+Yes
+NSV063
+Test meters
+Each
+Yes
+NSV064
+LWHT-15 WAY-DB BOX
+Each
+Yes
+NSV065
+GRL DNH7-160A-3P [ ]
+Each
+Yes
+NSV066
+GRL NH00 160A [ ]
+Each
+Yes
+NSV067
+RENALEC SPD DC 500VRenalac SPD DC 500v
+Each
+Yes
+NSV068
+Sinometer Change Over Switch 3P 80A
+Each
+Yes
+NSV069
+MC4 CONNECTORS [ ]
+Each
+Yes
+NSV070
+GREY SLOTTED TRUNKING 65*65
+Each
+Yes
+NSV071
+RENALEC DC MCB DP 20A
+Each
+Yes
+NSV072
+Cable ties Insulok PV 305 x 4.7mm BlackT50I Q:100
+Each
+Yes
+NSV073
+CABLE LUG 2.5x8mm
+Each
+Yes
+NSV074
+CABLE LUG 35x12mm
+Each
+Yes
+NSV075
+BARE COPPER WIRE 2.5mm Per M
+meter
+Yes
+NSV076
+MCB NB1-63 63a TRIPLE POLE 6ka CHINT
+Each
+Yes
+NSV077
+FLEX CABLE 4 CORE 6mm WHITE/BLACK Per M
+meter
+Yes
+NSV078
+NAIL IN ANCHOR M8x60mm Q:100 ANCHORMAN
+pack
+Yes
+NSV079
+NAIL IN ANCHOR M6x40mm Q:100 ANCHORMAN
+pack
+Yes
+NSV080
+RIGID PRESSURE PIPE CLASS 9/10 6m 50mm MPVC
+length
+Yes
+NSV081
+IR Mega Tester
+Each
+Yes
+NSV082
+Pressing Tool
+Each
+Yes
+NSV083
+BARE COPPER
+Each
+Yes
+NSV084
+Brass Grand
+Each
+Yes
+NSV085
+Earthrods
+Each
+Yes
+NSV086
+Ratchet THPTW200N2 1/2 40-200Nm
+Each
+Yes
+A supplier list for expected stock receipts. (Needs to be discussed and reviewed).
+Supplier
+Expected Stock Receipts
+Jinko
+Solar Panel
+Chint
+Solar Panel
+Lyfra Trading
+Accessories
+XYZ
+**********
+ABC
+**********
+Additionally, WebZim requires the following information to complete the registration of your domain:
+Full name: Petronelah Majaja
+Company name:New Sahara Ventures
+Full physical address43 Coull Drive, Mount Pleasant, Harare
+Phone number+263 778414616
+Existing email addressaccounts@newsaharaventures.com
+Core businessDevelopment, financing, engineering, construction, ownership, and operation of renewable energy projects,
+Domain name*********?
+Nameservers (optional)*********?

@@ -30,4 +30,5 @@ public class Receipt extends BaseEntity {
     }
 
     public ReceiptStatus getStatus() { return status; }
+    public MaterialRequest getMaterialRequest() { return materialRequest; }
 }

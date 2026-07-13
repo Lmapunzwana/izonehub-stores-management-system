@@ -28,12 +28,12 @@ public class ExpectedReceipt extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ExpectedReceiptStatus status = ExpectedReceiptStatus.PENDING;
+    private ExpectedReceiptStatus status = ExpectedReceiptStatus.AWAITING_GRN;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private AppUser createdBy;
 
-    @OneToMany(mappedBy = "expectedReceipt", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "expectedReceipt", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ExpectedReceiptLine> lines = new ArrayList<>();
 
     protected ExpectedReceipt() {
@@ -51,6 +51,7 @@ public class ExpectedReceipt extends BaseEntity {
     public LocalDate getExpectedDate() { return expectedDate; }
     public ExpectedReceiptStatus getStatus() { return status; }
     public List<ExpectedReceiptLine> getLines() { return lines; }
+    public int getLineCount() { return lines.size(); }
 
     public void addLine(ExpectedReceiptLine line) {
         line.attachTo(this);
@@ -58,9 +59,17 @@ public class ExpectedReceipt extends BaseEntity {
     }
 
     public void markOverdue(LocalDate today) {
-        if (status == ExpectedReceiptStatus.PENDING && expectedDate.isBefore(today)) {
-            status = ExpectedReceiptStatus.OVERDUE;
+        if (status == ExpectedReceiptStatus.AWAITING_GRN && expectedDate.isBefore(today)) {
+            status = ExpectedReceiptStatus.DELAYED;
         }
+    }
+
+    public void setStatus(ExpectedReceiptStatus newStatus) {
+        // Prevent manual override back to a lower state if it's already received
+        if (this.status == ExpectedReceiptStatus.COMPLETED || this.status == ExpectedReceiptStatus.PARTIALLY_RECEIVED) {
+            throw new IllegalStateException("Cannot change status of a receipt that has already been partially or fully received");
+        }
+        this.status = newStatus;
     }
 
     public void markCompleted(boolean hasVariance) {

@@ -1,6 +1,7 @@
 package com.izonehub.stores.issuance;
 
 import com.izonehub.stores.inventory.InventoryCommandService;
+import com.izonehub.stores.store.Store;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,17 +16,28 @@ public class ReturnCommandService {
     }
 
     @Transactional
-    public StockReturn confirm(MaterialIssueVoucher miv, StockReturn stockReturn) {
+    public StockReturn createPendingReturn(MaterialIssueVoucher miv, StockReturn stockReturn) {
+        stockReturn.setStatus(ReturnStatus.PENDING_CONFIRMATION);
+        return returns.save(stockReturn);
+    }
+
+    @Transactional
+    public StockReturn confirm(StockReturn stockReturn) {
+        stockReturn.setStatus(ReturnStatus.CONFIRMED);
+        MaterialIssueVoucher miv = stockReturn.getMiv();
         stockReturn.getLines().forEach(line -> {
-            miv.getLines().stream()
-                    .filter(mivLine -> mivLine.getItem() == line.getItem())
-                    .findFirst()
-                    .ifPresent(mivLine -> mivLine.addReturn(line.getQuantity()));
+            if (miv != null) {
+                miv.getLines().stream()
+                        .filter(mivLine -> mivLine.getItem() == line.getItem())
+                        .findFirst()
+                        .ifPresent(mivLine -> mivLine.addReturn(line.getQuantity()));
+            }
             if (line.getCondition() == ReturnCondition.SERVICEABLE) {
-                inventory.receive(miv.getStore(), line.getItem(), line.getQuantity());
+                Store targetStore = miv != null ? miv.getStore() : stockReturn.getStore();
+                inventory.receive(targetStore, line.getItem(), line.getQuantity());
             }
         });
-        miv.markPartiallyReturned();
+        if (miv != null) miv.markPartiallyReturned();
         return returns.save(stockReturn);
     }
 }

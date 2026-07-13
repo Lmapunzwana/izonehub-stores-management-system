@@ -28,7 +28,7 @@ public class DiscrepancyEscalationJob {
         Instant cutoff = Instant.now().minus(48, ChronoUnit.HOURS);
         discrepancies.findByStatusAndCreatedAtBefore(DiscrepancyStatus.OPEN, cutoff).forEach(discrepancy ->
                 users.findAll().stream()
-                        .filter(user -> user.getRole() == Role.CENTRAL_STORE_MANAGER && user.isActive())
+                        .filter(user -> user.getRoles().contains(Role.CENTRAL_STORE_MANAGER) && user.isActive())
                         .forEach(user -> notifications.notify(user, NotificationType.DISCREPANCY_OPENED,
                                 "Discrepancy unresolved after 48 hours")));
     }

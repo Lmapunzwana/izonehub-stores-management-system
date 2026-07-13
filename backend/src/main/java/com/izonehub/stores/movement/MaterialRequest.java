@@ -1,6 +1,7 @@
 package com.izonehub.stores.movement;
 
 import com.izonehub.stores.common.BaseEntity;
+import com.izonehub.stores.project.Project;
 import com.izonehub.stores.store.Store;
 import com.izonehub.stores.user.AppUser;
 import jakarta.persistence.*;
@@ -15,8 +16,8 @@ public class MaterialRequest extends BaseEntity {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Store sourceStore;
 
-    @Column(nullable = false)
-    private String projectCode;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    private Project project;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -40,17 +41,22 @@ public class MaterialRequest extends BaseEntity {
     protected MaterialRequest() {
     }
 
-    public MaterialRequest(Store requestingStore, Store sourceStore, String projectCode, AppUser raisedBy, String transferReason) {
+    public MaterialRequest(Store requestingStore, Store sourceStore, Project project, AppUser raisedBy, String transferReason) {
         this.requestingStore = requestingStore;
         this.sourceStore = sourceStore;
-        this.projectCode = projectCode;
+        this.project = project;
         this.raisedBy = raisedBy;
         this.transferReason = transferReason;
     }
 
     public Store getRequestingStore() { return requestingStore; }
     public Store getSourceStore() { return sourceStore; }
+    public Project getProject() { return project; }
     public MaterialRequestStatus getStatus() { return status; }
+    public AppUser getRaisedBy() { return raisedBy; }
+    public AppUser getApprovedBy() { return approvedBy; }
+    public String getRejectionReason() { return rejectionReason; }
+    public String getTransferReason() { return transferReason; }
     public List<MaterialRequestLine> getLines() { return lines; }
 
     public void addLine(MaterialRequestLine line) {

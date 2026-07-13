@@ -3,14 +3,18 @@ package com.izonehub.stores.movement;
 import com.izonehub.stores.common.BaseEntity;
 import com.izonehub.stores.item.Item;
 import com.izonehub.stores.user.AppUser;
+import com.izonehub.stores.receipt.GoodsReceivedNote;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
 public class Discrepancy extends BaseEntity {
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = true, fetch = FetchType.LAZY)
     private Receipt receipt;
+
+    @ManyToOne(optional = true, fetch = FetchType.LAZY)
+    private GoodsReceivedNote grn;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Item item;
@@ -40,6 +44,7 @@ public class Discrepancy extends BaseEntity {
     }
 
     public Discrepancy(Receipt receipt, Item item, BigDecimal dispatchedQuantity, BigDecimal receivedQuantity) {
+        if (receipt == null) throw new IllegalArgumentException("Receipt cannot be null");
         this.receipt = receipt;
         this.item = item;
         this.dispatchedQuantity = dispatchedQuantity;
@@ -47,8 +52,25 @@ public class Discrepancy extends BaseEntity {
         this.frozenQuantity = dispatchedQuantity.subtract(receivedQuantity).abs();
     }
 
+    public Discrepancy(GoodsReceivedNote grn, Item item, BigDecimal expectedQuantity, BigDecimal receivedQuantity) {
+        if (grn == null) throw new IllegalArgumentException("GRN cannot be null");
+        this.grn = grn;
+        this.item = item;
+        this.dispatchedQuantity = expectedQuantity;
+        this.receivedQuantity = receivedQuantity;
+        this.frozenQuantity = expectedQuantity.subtract(receivedQuantity).abs();
+    }
+
+    public Receipt getReceipt() { return receipt; }
+    public GoodsReceivedNote getGrn() { return grn; }
+    public Item getItem() { return item; }
+    public BigDecimal getDispatchedQuantity() { return dispatchedQuantity; }
+    public BigDecimal getReceivedQuantity() { return receivedQuantity; }
     public BigDecimal getFrozenQuantity() { return frozenQuantity; }
     public DiscrepancyStatus getStatus() { return status; }
+    public AppUser getResolvedBy() { return resolvedBy; }
+    public String getResolutionNotes() { return resolutionNotes; }
+    public Instant getResolvedAt() { return resolvedAt; }
 
     public void resolve(AppUser resolvedBy, String resolutionNotes) {
         if (resolutionNotes == null || resolutionNotes.isBlank()) {

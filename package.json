@@ -1,1 +1,1 @@
-{"scripts":{"test":"npm --prefix frontend test","build":"npm --prefix frontend run build"},"workspaces":["frontend"]}
+{"scripts":{"test":"npm --prefix frontend test","build":"npm --prefix frontend run build"},"workspaces":["frontend"],"dependencies":{"@refinedev/kbar":"^1.3.17","bcrypt":"^6.0.0"}}

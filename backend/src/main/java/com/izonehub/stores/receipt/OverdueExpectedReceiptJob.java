@@ -25,7 +25,7 @@ public class OverdueExpectedReceiptJob {
     @Transactional
     public void flagOverdueReceipts() {
         LocalDate today = LocalDate.now();
-        expectedReceipts.findByStatusAndExpectedDateBefore(ExpectedReceiptStatus.PENDING, today).forEach(receipt -> {
+        expectedReceipts.findByStatusAndExpectedDateBefore(ExpectedReceiptStatus.AWAITING_GRN, today).forEach(receipt -> {
             receipt.markOverdue(today);
             notifyProcurement("Expected receipt overdue from " + receipt.getSupplierName());
         });
@@ -33,7 +33,7 @@ public class OverdueExpectedReceiptJob {
 
     private void notifyProcurement(String message) {
         users.findAll().stream()
-                .filter(user -> user.getRole() == Role.PROCUREMENT_OFFICER && user.isActive())
+                .filter(user -> user.getRoles().contains(Role.CENTRAL_STORE_MANAGER) && user.isActive())
                 .forEach(user -> notifications.notify(user, NotificationType.EXPECTED_RECEIPT_OVERDUE, message));
     }
 }

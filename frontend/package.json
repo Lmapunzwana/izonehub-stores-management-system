@@ -1,1 +1,21 @@
-{"type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"tsc -b && vite build","test":"vitest run"},"dependencies":{"@vitejs/plugin-react":"latest","vite":"latest","typescript":"latest","react":"18.3.1","react-dom":"18.3.1","antd":"^5.26.3","@tanstack/react-query":"latest","zustand":"latest"},"devDependencies":{"vitest":"latest","@testing-library/react":"latest","@testing-library/jest-dom":"latest","jsdom":"latest","@types/react":"latest","@types/react-dom":"latest"}}
+{
+  "name": "stores-management-system",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
+}

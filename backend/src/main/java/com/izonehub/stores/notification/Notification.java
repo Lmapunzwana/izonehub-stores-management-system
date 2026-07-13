@@ -33,6 +33,7 @@ public class Notification extends BaseEntity {
         this.message = message;
     }
 
+    public com.izonehub.stores.user.AppUser getUser() { return user; }
     public NotificationType getType() { return type; }
     public String getMessage() { return message; }
     public boolean isRead() { return read; }

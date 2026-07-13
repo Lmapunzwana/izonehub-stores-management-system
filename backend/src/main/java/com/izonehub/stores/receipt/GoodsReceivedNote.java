@@ -45,4 +45,8 @@ public class GoodsReceivedNote extends BaseEntity {
 
     public String getReferenceNumber() { return referenceNumber; }
     public GrnStatus getStatus() { return status; }
+    public ExpectedReceipt getExpectedReceipt() { return expectedReceipt; }
+    public Store getStore() { return store; }
+    public AppUser getReceivedBy() { return receivedBy; }
+    public Instant getReceivedAt() { return receivedAt; }
 }

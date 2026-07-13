@@ -1,6 +1,7 @@
 package com.izonehub.stores.issuance;
 
 import com.izonehub.stores.common.BaseEntity;
+import com.izonehub.stores.project.Project;
 import com.izonehub.stores.store.Store;
 import com.izonehub.stores.user.AppUser;
 import jakarta.persistence.*;
@@ -16,8 +17,8 @@ public class MaterialIssueVoucher extends BaseEntity {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Store store;
 
-    @Column(nullable = false)
-    private String projectCode;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    private Project project;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private AppUser issuedBy;
@@ -34,15 +35,18 @@ public class MaterialIssueVoucher extends BaseEntity {
 
     protected MaterialIssueVoucher() {}
 
-    public MaterialIssueVoucher(String referenceNumber, Store store, String projectCode, AppUser issuedBy) {
+    public MaterialIssueVoucher(String referenceNumber, Store store, Project project, AppUser issuedBy) {
         this.referenceNumber = referenceNumber;
         this.store = store;
-        this.projectCode = projectCode;
+        this.project = project;
         this.issuedBy = issuedBy;
     }
 
     public Store getStore() { return store; }
-    public String getProjectCode() { return projectCode; }
+    public String getReferenceNumber() { return referenceNumber; }
+    public Project getProject() { return project; }
+    public AppUser getIssuedBy() { return issuedBy; }
+    public Instant getIssuedAt() { return issuedAt; }
     public List<MivLine> getLines() { return lines; }
     public MivStatus getStatus() { return status; }
 

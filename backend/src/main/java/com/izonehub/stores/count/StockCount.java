@@ -31,6 +31,8 @@ public class StockCount extends BaseEntity {
 
     public List<StockCountLine> getLines() { return lines; }
     public StockCountStatus getStatus() { return status; }
+    public Store getStore() { return store; }
+    public AppUser getInitiatedBy() { return initiatedBy; }
     public void addLine(StockCountLine line) { line.attachTo(this); lines.add(line); }
 
     public void completeIfResolved() {

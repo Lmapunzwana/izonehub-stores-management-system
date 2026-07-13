@@ -57,6 +57,14 @@ public class StockAdjustment extends BaseEntity {
 
     public boolean isRequiresCountersignature() { return requiresCountersignature; }
     public boolean isCountersigned() { return countersignedBy != null; }
+    public String getReferenceNumber() { return referenceNumber; }
+    public Store getStore() { return store; }
+    public Item getItem() { return item; }
+    public AppUser getAdjustedBy() { return adjustedBy; }
+    public AdjustmentReasonCode getReasonCode() { return reasonCode; }
+    public BigDecimal getQuantityBefore() { return quantityBefore; }
     public BigDecimal getQuantityAfter() { return quantityAfter; }
+    public String getNotes() { return notes; }
+    public AppUser getCountersignedBy() { return countersignedBy; }
     public void countersign(AppUser countersignedBy) { this.countersignedBy = countersignedBy; }
 }

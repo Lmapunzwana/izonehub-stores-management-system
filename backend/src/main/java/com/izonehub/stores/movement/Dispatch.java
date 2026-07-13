@@ -31,4 +31,10 @@ public class Dispatch extends BaseEntity {
         this.collectorName = collectorName;
         this.collectorEmployeeId = collectorEmployeeId;
     }
+
+    public MaterialRequest getMaterialRequest() { return materialRequest; }
+    public AppUser getDispatchedBy() { return dispatchedBy; }
+    public String getCollectorName() { return collectorName; }
+    public String getCollectorEmployeeId() { return collectorEmployeeId; }
+    public Instant getDispatchedAt() { return dispatchedAt; }
 }

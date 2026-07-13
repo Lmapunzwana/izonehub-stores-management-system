@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class StockCountCommandService {
+
     private final StockCountRepository stockCounts;
     private final InventoryRepository inventory;
 
@@ -19,8 +20,7 @@ public class StockCountCommandService {
     @Transactional
     public StockCount initiate(Store store, AppUser initiatedBy) {
         StockCount count = new StockCount(store, initiatedBy);
-        inventory.findAll().stream()
-                .filter(inv -> inv.getStore().equals(store))
+        inventory.findByStoreEager(store)
                 .forEach(inv -> count.addLine(new StockCountLine(inv.getItem(), inv.getQuantityOnHand())));
         return stockCounts.save(count);
     }

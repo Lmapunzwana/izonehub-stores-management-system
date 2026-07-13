@@ -5,3 +5,18 @@ spring:
     password:
   flyway.enabled: false
   jpa.hibernate.ddl-auto: create-drop
+
+app:
+  jwt:
+    issuer: test-issuer
+    secret: test-secret-key-for-unit-tests-only-must-be-32-plus-bytes
+    access-token-minutes: 15
+    refresh-token-days: 7
+  security:
+    max-failed-logins: 5
+    login-rate-limit-attempts: 100   # effectively disabled in tests
+    login-rate-limit-minutes: 1
+    cookie-secure: false             # HTTP is fine in tests
+    cookie-domain:
+    cookie-same-site: Strict
+  csp: "default-src 'self'"

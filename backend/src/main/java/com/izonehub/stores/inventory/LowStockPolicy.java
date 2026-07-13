@@ -7,27 +7,46 @@ import com.izonehub.stores.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 @Service
 public class LowStockPolicy {
-    private final NotificationService notifications;
-    private final UserRepository users;
 
-    public LowStockPolicy(NotificationService notifications, UserRepository users) {
+    private final NotificationService        notifications;
+    private final UserRepository             users;
+    private final LowStockThresholdRepository thresholds;
+
+    public LowStockPolicy(NotificationService notifications,
+                          UserRepository users,
+                          LowStockThresholdRepository thresholds) {
         this.notifications = notifications;
-        this.users = users;
+        this.users         = users;
+        this.thresholds    = thresholds;
     }
 
     @Transactional
     public void evaluate(StoreInventory inventory) {
-        if (inventory.getQuantityOnHand().compareTo(inventory.getItem().getReorderThreshold()) > 0) {
-            return;
-        }
-        var message = "Low stock: " + inventory.getItem().getCode() + " at " + inventory.getQuantityOnHand();
+        // Per-store threshold takes precedence over the item-level default
+        BigDecimal threshold = thresholds
+                .findByStoreAndItem(inventory.getStore(), inventory.getItem())
+                .map(LowStockThreshold::getThreshold)
+                .orElse(inventory.getItem().getReorderThreshold());
+
+        if (inventory.getQuantityOnHand().compareTo(threshold) > 0) return;
+
+        String message = "Low stock: %s at %.2f units (threshold: %.2f) — %s".formatted(
+                inventory.getItem().getCode(),
+                inventory.getQuantityOnHand(),
+                threshold,
+                inventory.getStore().getName()
+        );
+
         if (inventory.getStore().getManager() != null) {
             notifications.notify(inventory.getStore().getManager(), NotificationType.LOW_STOCK, message);
         }
+
         users.findAll().stream()
-                .filter(user -> user.getRole() == Role.PROCUREMENT_OFFICER && user.isActive())
-                .forEach(user -> notifications.notify(user, NotificationType.LOW_STOCK, message));
+                .filter(u -> u.getRoles().contains(Role.CENTRAL_STORE_MANAGER) && u.isActive())
+                .forEach(u -> notifications.notify(u, NotificationType.LOW_STOCK, message));
     }
 }

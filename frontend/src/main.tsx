@@ -1,3 +1,0 @@
-import React from 'react';import{createRoot}from'react-dom/client';import{ConfigProvider,Layout,Typography}from'antd';import{QueryClient,QueryClientProvider}from'@tanstack/react-query';
-const queryClient=new QueryClient();function App(){return <ConfigProvider><QueryClientProvider client={queryClient}><Layout style={{minHeight:'100vh',padding:24}}><Typography.Title>New Sahara Ventures Stores Management</Typography.Title><Typography.Paragraph>Phase 0 foundation is ready: secured backend, audit log, and role-aware frontend shell.</Typography.Paragraph></Layout></QueryClientProvider></ConfigProvider>}
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
