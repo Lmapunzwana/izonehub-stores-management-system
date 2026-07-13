@@ -1,0 +1,1 @@
+ALTER TABLE stock_return ALTER COLUMN miv_id DROP NOT NULL;
