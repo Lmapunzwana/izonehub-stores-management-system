@@ -168,7 +168,7 @@ export default function ItemsPage() {
                       <ShoppingCart size={16} />
                       Reorder
                     </button>
-                  ) : user?.roles?.includes("SITE_STORE_MANAGER") && item.available > 0 ? (
+                  ) : (user?.roles?.includes("SITE_STORE_MANAGER") || user?.roles?.includes("SYSTEM_ADMINISTRATOR") || user?.roles?.includes("CENTRAL_STORE_MANAGER")) && item.available > 0 ? (
                     <button
                       type="button"
                       className="ch-btn ch-btn--primary"
