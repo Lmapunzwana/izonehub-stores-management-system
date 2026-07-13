@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Badge from "../components/Badge";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
 import { Package, Flame, Search } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function ConsumptionPage() {
   const { items, defaultStoreId, consumeItems } = useAppData();
@@ -13,6 +14,25 @@ export default function ConsumptionPage() {
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
   const [consumeQty, setConsumeQty] = useState("");
+  const [siteStock, setSiteStock] = useState({});
+  const [loadingStock, setLoadingStock] = useState(false);
+
+  // Fetch stock specific to the current site store
+  useEffect(() => {
+    if (!defaultStoreId) return;
+    setLoadingStock(true);
+    apiFetch(`/api/reports/current-stock?storeId=${defaultStoreId}`)
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : res?.content || [];
+        const stockMap = {};
+        rows.forEach(r => {
+          stockMap[r.itemCode] = Number(r.onHand || 0) - Number(r.reserved || 0);
+        });
+        setSiteStock(stockMap);
+      })
+      .catch(err => console.error("Failed to fetch site stock:", err))
+      .finally(() => setLoadingStock(false));
+  }, [defaultStoreId]);
 
   async function handleConsume(e) {
     e.preventDefault();
@@ -23,6 +43,19 @@ export default function ConsumptionPage() {
       setConsumeItem(null);
       setConsumeQty("");
       showAlert({ title: "Success", message: "Item successfully consumed from inventory.", type: "success" });
+      
+      // Refresh site stock after consumption
+      apiFetch(`/api/reports/current-stock?storeId=${defaultStoreId}`)
+        .then((res) => {
+          const rows = Array.isArray(res) ? res : res?.content || [];
+          const stockMap = {};
+          rows.forEach(r => {
+            stockMap[r.itemCode] = Number(r.onHand || 0) - Number(r.reserved || 0);
+          });
+          setSiteStock(stockMap);
+        })
+        .catch(console.error);
+
     } catch (err) {
       console.error(err);
       showAlert({ title: "Error", message: "Failed to consume item. " + err.message, type: "danger" });
@@ -30,16 +63,18 @@ export default function ConsumptionPage() {
   }
 
   const visibleItems = useMemo(() => {
-    // Only show items that have actual physical stock > 0
-    return items.filter((i) => {
-      const hasStock = i.available > 0;
-      const matchesSearch =
-        !search ||
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.code.toLowerCase().includes(search.toLowerCase());
-      return hasStock && matchesSearch;
-    });
-  }, [items, search]);
+    // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE
+    return items
+      .map(i => ({ ...i, available: siteStock[i.code] || 0 }))
+      .filter((i) => {
+        const hasStock = i.available > 0;
+        const matchesSearch =
+          !search ||
+          i.name.toLowerCase().includes(search.toLowerCase()) ||
+          i.code.toLowerCase().includes(search.toLowerCase());
+        return hasStock && matchesSearch;
+      });
+  }, [items, search, siteStock]);
 
   return (
     <div className="page">
