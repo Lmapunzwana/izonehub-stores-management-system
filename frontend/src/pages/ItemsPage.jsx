@@ -198,8 +198,8 @@ export default function ItemsPage() {
       </div>
 
       {consumeModalOpen && consumeItem && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 400 }}>
+        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
+          <div className="app-modal" style={{ maxWidth: 400, padding: 24, textAlign: "left" }}>
             <h3 style={{ marginTop: 0 }}>Consume {consumeItem.name}</h3>
             <p style={{ color: "#64748b", fontSize: 14 }}>
               Available in physical inventory: <strong>{consumeItem.available}</strong>

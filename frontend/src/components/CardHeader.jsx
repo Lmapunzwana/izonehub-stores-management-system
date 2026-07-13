@@ -86,25 +86,30 @@ export default function CardHeader({
       <div className="ch-header__right">
         {right ? (
           right
-        ) : status ? (
-          <span
-            className={`ch-status ch-status--${status.variant || "default"}`}
-          >
-            {status.label}
-          </span>
-        ) : actions?.length ? (
-          actions.map((action, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={action.onClick}
-              className={`ch-btn ch-btn--${action.variant || "outline"}`}
-            >
-              {action.icon}
-              {action.label}
-            </button>
-          ))
-        ) : null}
+        ) : (
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            {status && (
+              <span
+                className={`ch-status ch-status--${status.variant || "default"}`}
+              >
+                {status.label}
+              </span>
+            )}
+            {actions?.length ? (
+              actions.map((action, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={action.onClick}
+                  className={`ch-btn ch-btn--${action.variant || "outline"}`}
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              ))
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

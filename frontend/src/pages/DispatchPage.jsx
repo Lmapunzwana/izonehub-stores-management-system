@@ -185,8 +185,8 @@ export default function DispatchPage() {
       </div>
 
       {returnModalOpen && returnRequest && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 600 }}>
+        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
+          <div className="app-modal" style={{ maxWidth: 600, padding: 24, textAlign: "left" }}>
             <h3 style={{ marginTop: 0 }}>Return Items (Request: {returnRequest.requestNo})</h3>
             <form onSubmit={handleReturn}>
               <table className="table" style={{ marginTop: 16 }}>
