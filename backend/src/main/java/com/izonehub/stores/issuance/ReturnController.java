@@ -108,8 +108,9 @@ public class ReturnController {
         }
 
         StockReturn confirmed = svc.confirm(sr);
+        String mivRef = confirmed.getMiv() != null ? " against MIV '" + confirmed.getMiv().getReferenceNumber() + "'" : "";
         auditLog.record("RETURN", confirmed.getId().toString(), "CONFIRMED",
-                "Confirmed return against MIV '" + confirmed.getMiv().getReferenceNumber() + "'", email);
+                "Confirmed return" + mivRef, email);
 
         Store store = confirmed.getStore();
         if (store.isClosing()) {
