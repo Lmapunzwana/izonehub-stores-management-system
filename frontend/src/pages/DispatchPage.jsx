@@ -3,6 +3,7 @@ import { Send, PackageCheck } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
 
 // backend/.../movement/MaterialRequestStatus.java has no "Dispatched" or
 // "Received" value — dispatch() moves a request straight to IN_TRANSIT
@@ -17,6 +18,7 @@ const STATUS_TYPE = {
 
 export default function DispatchPage() {
   const { materialRequests, dispatchRequest, markRequestReceived, initiateReturn } = useAppData();
+  const { showAlert } = useAppModal();
   const [collector, setCollector] = useState({});
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnRequest, setReturnRequest] = useState(null);
@@ -28,14 +30,14 @@ export default function DispatchPage() {
 
   function openReturn(r) {
     setReturnRequest(r);
-    // Initialize return lines with all received items, quantity 0, condition USABLE
+    // Initialize return lines with all received items, quantity 0, condition SERVICEABLE
     setReturnLines(
       r.original.lines.map((l) => ({
         itemId: l.item.id,
         itemName: l.item.name,
         receivedQuantity: l.receivedQuantity || l.dispatchedQuantity || 0, // Fallback if no specific received field
         quantity: 0,
-        condition: "USABLE",
+        condition: "SERVICEABLE",
       }))
     );
     setReturnModalOpen(true);
@@ -48,7 +50,7 @@ export default function DispatchPage() {
       .map(({ itemId, quantity, condition }) => ({ itemId, quantity: Number(quantity), condition }));
     
     if (payloadLines.length === 0) {
-      alert("Please enter a return quantity for at least one item.");
+      showAlert({ title: "Validation Error", message: "Please enter a return quantity for at least one item.", type: "warning" });
       return;
     }
 
@@ -57,7 +59,8 @@ export default function DispatchPage() {
       setReturnModalOpen(false);
       setReturnRequest(null);
     } catch (err) {
-      alert("Failed to initiate return. " + err.message);
+      console.error(err);
+      showAlert({ title: "Error", message: "Failed to initiate return. " + err.message, type: "danger" });
     }
   }
 
@@ -226,7 +229,7 @@ export default function DispatchPage() {
                             setReturnLines(newLines);
                           }}
                         >
-                          <option value="USABLE">Usable</option>
+                          <option value="SERVICEABLE">Serviceable</option>
                           <option value="DAMAGED">Damaged</option>
                         </select>
                       </td>

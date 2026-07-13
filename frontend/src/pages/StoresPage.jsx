@@ -3,10 +3,12 @@ import { Plus, Check, X, MapPin } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
 import { apiFetch } from "../api";
 
 export default function StoresPage() {
   const { stores, addStore, refreshItems } = useAppData();
+  const { showConfirm, showAlert } = useAppModal();
   const [showForm, setShowForm] = useState(false);
   const [newStore, setNewStore] = useState({ name: "", type: "SITE", location: "" });
   const [error, setError] = useState(null);
@@ -30,25 +32,38 @@ export default function StoresPage() {
     }
   }
 
-  async function initiateClosure(id) {
-    if (!window.confirm("Initiate closure for this store? This will generate a return for all items and restrict new operations.")) return;
-    try {
-      await apiFetch(`/api/stores/${id}/close`, { method: "POST" });
-      window.location.reload(); 
-    } catch (e) {
-      alert(e.message || "Failed to initiate closure");
-    }
+  function initiateClosure(id) {
+    showConfirm({
+      title: "Initiate Closure",
+      message: "Initiate closure for this store? This will generate a return for all items and restrict new operations.",
+      type: "warning",
+      confirmText: "Yes, Close Store",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/api/stores/${id}/close`, { method: "POST" });
+          window.location.reload();
+        } catch (e) {
+          showAlert({ title: "Closure Failed", message: e.message || "Failed to initiate closure", type: "danger" });
+        }
+      }
+    });
   }
 
-  async function reopenStore(id) {
-    if (!window.confirm("Reopen this store?")) return;
-    try {
-      await apiFetch(`/api/stores/${id}/reopen`, { method: "PUT" });
-      // Reload page to refresh all context safely (lazy way to refresh stores context)
-      window.location.reload(); 
-    } catch (e) {
-      alert(e.message || "Failed to reopen store");
-    }
+  function reopenStore(id) {
+    showConfirm({
+      title: "Reopen Store",
+      message: "Reopen this store?",
+      type: "info",
+      confirmText: "Yes, Reopen",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/api/stores/${id}/reopen`, { method: "PUT" });
+          window.location.reload();
+        } catch (e) {
+          showAlert({ title: "Reopen Failed", message: e.message || "Failed to reopen store", type: "danger" });
+        }
+      }
+    });
   }
 
   return (

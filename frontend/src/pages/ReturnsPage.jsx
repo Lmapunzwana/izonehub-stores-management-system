@@ -1,17 +1,36 @@
+import { useState } from "react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, RotateCcw } from "lucide-react";
 import { useAppData } from "../context/AppDataContext";
+import ReturnToCentralModal from "../components/ReturnToCentralModal";
 
 export default function ReturnsPage() {
-  const { returnsList, confirmReturn } = useAppData();
+  const { returnsList, confirmReturn, refreshItems } = useAppData();
+  const [modalOpen, setModalOpen] = useState(false);
   const awaitingCount = returnsList.filter((r) => r.status === "Awaiting Confirmation").length;
 
   return (
     <div className="page">
+      <ReturnToCentralModal 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        onSuccess={() => {
+          refreshItems();
+          // Ideally fetch returns list again, but refreshItems might do enough depending on AppDataContext
+        }} 
+      />
       <div className="card">
         <CardHeader
           title="Project Returns"
+          actions={[
+            {
+              label: "New Return to Central",
+              icon: <RotateCcw size={16} />,
+              variant: "primary",
+              onClick: () => setModalOpen(true),
+            },
+          ]}
           status={{
             label: `${awaitingCount} awaiting confirmation`,
             variant: awaitingCount > 0 ? "warning" : "success",

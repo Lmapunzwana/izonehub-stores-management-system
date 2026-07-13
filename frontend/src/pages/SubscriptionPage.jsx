@@ -3,9 +3,11 @@ import { Settings, Plus, Minus, Server, Activity } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import { apiFetch } from "../api";
 import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
 
 export default function SubscriptionPage() {
   const { user } = useAppData();
+  const { showAlert } = useAppModal();
   const [sub, setSub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

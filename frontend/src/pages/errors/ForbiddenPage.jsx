@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { Mail, Home, ShieldAlert } from "lucide-react";
+import { useAppModal } from "../../context/ModalContext";
 
 export default function ForbiddenPage() {
   const navigate = useNavigate();
+  const { showAlert } = useAppModal();
   return (
     <div className="page">
       <div className="card error-card">
@@ -16,7 +18,7 @@ export default function ForbiddenPage() {
         <div className="error-actions">
           <button
             className="ch-btn ch-btn--primary"
-            onClick={() => alert("Access request sent to your system administrator.")}
+            onClick={() => showAlert({ title: "Request Sent", message: "Access request sent to your system administrator.", type: "success" })}
           >
             <Mail size={16} />
             Request Access

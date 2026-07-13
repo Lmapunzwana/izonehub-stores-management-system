@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Badge from "../components/Badge";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
 import {
   Plus,
   Download,
@@ -14,7 +15,8 @@ import {
 
 export default function ItemsPage() {
   const navigate = useNavigate();
-  const { items } = useAppData();
+  const { items, user, defaultStoreId, consumeItems } = useAppData();
+  const { showAlert } = useAppModal();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
@@ -26,7 +28,6 @@ export default function ItemsPage() {
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
   const [consumeQty, setConsumeQty] = useState("");
-  const { user, defaultStoreId, consumeItems } = useAppData();
 
   function onAdd() {
     navigate("/items/add-item");
@@ -59,7 +60,8 @@ export default function ItemsPage() {
       setConsumeItem(null);
       setConsumeQty("");
     } catch (err) {
-      alert("Failed to consume item. " + err.message);
+      console.error(err);
+      showAlert({ title: "Error", message: "Failed to consume item. " + err.message, type: "danger" });
     }
   }
 

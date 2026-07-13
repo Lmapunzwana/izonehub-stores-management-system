@@ -4,10 +4,12 @@ import { FolderPlus, ArrowRight, Lock } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
+import { useAppModal } from "../context/ModalContext";
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const { projects, addProject, closeProject, stores } = useAppData();
+  const { showConfirm } = useAppModal();
   const [showForm, setShowForm] = useState(false);
   const openSiteStores = stores.filter((s) => s.type === "SITE" && s.active);
   const [newProject, setNewProject] = useState({ code: "", name: "", budget: "", siteStoreId: "" });
@@ -144,9 +146,13 @@ export default function ProjectsPage() {
                         type="button"
                         className="ch-btn ch-btn--danger"
                         onClick={() => {
-                          if (window.confirm(`Close "${p.name}"? Its site store will close too if no other active project uses it.`)) {
-                            closeProject(p.id);
-                          }
+                          showConfirm({
+                            title: "Close Project",
+                            message: `Close "${p.name}"? Its site store will close too if no other active project uses it.`,
+                            type: "warning",
+                            confirmText: "Yes, Close",
+                            onConfirm: () => closeProject(p.id)
+                          });
                         }}
                       >
                         Close Project
