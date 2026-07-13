@@ -555,6 +555,22 @@ export function AppDataProvider({ children }) {
     }
   }
 
+  async function initiateReturn(requestId, payloadLines) {
+    try {
+      const req = materialRequests.find((r) => r.requestNo === requestId || r.id === requestId);
+      const uuid = req ? req.id : requestId;
+      await apiFetch(`/api/material-requests/${uuid}/returns`, {
+        method: "POST",
+        body: { lines: payloadLines },
+      });
+      const updatedReturns = await apiFetch("/api/returns");
+      setReturnsList(asList(updatedReturns).map(mapReturn));
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
   // --- Projects ---
   async function addProject(project) {
     try {
