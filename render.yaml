@@ -16,10 +16,18 @@ services:
     healthCheckPath: /actuator/health
     envVars:
       # Automatically connect to the Render PostgreSQL database
-      - key: SPRING_DATASOURCE_URL
+      - key: DB_HOST
         fromDatabase:
           name: stores-db
-          property: connectionString
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: stores-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: stores-db
+          property: database
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: stores-db
