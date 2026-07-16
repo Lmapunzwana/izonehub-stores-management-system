@@ -1,10 +1,11 @@
-services:
+databases:
   # 1. PostgreSQL Database
-  - type: psql
-    name: stores-db
+  - name: stores-db
     plan: free # or 'starter' depending on your Render plan
     databaseName: stores
     user: stores
+
+services:
 
   # 2. Unified Web Service (Frontend + Backend in one)
   - type: web
