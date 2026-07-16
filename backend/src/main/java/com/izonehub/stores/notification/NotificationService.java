@@ -36,16 +36,7 @@ public class NotificationService {
         Notification notification = repository.save(new Notification(user, type, message));
         emailGateway.send(user, subject, message);
         
-        // --- TEMPORARY CC TO ADMINS FOR TESTING ---
-        if (!user.getRoles().contains(Role.SYSTEM_ADMINISTRATOR)) {
-            userRepository.findAll().stream()
-                .filter(u -> u.getRoles().contains(Role.SYSTEM_ADMINISTRATOR) && u.isActive())
-                .forEach(admin -> {
-                    emailGateway.send(admin, "[ADMIN CC] " + subject,
-                            "Originally meant for: " + user.getEmail() + " (" + user.getFullName() + ")\n\n" + message);
-                });
-        }
-        // -------------------------------------------
+
         
         return notification;
     }

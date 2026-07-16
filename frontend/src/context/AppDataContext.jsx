@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, useEffect } from "react";
+import { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { apiFetch } from "../api";
 
 const AppDataContext = createContext(null);
@@ -233,15 +233,13 @@ export function AppDataProvider({ children }) {
   }
 
 
-  // Fetch initial data on mount and on window focus
-  useEffect(() => {
-    let isFetching = false;
-    let lastFetchTime = 0;
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
-    async function refreshAll() {
-      if (isFetching || Date.now() - lastFetchTime < 10000) return; // Debounce 10 seconds
-      isFetching = true;
-      try {
+  const refreshAll = useCallback(async () => {
+    if (isFetchingRef.current || Date.now() - lastFetchTimeRef.current < 10000) return;
+    isFetchingRef.current = true;
+    try {
         const me = await apiFetch("/api/auth/me");
         setUser(me);
 
@@ -347,20 +345,22 @@ export function AppDataProvider({ children }) {
         setBatches(asList(fetchedBatches));
         setAuditLog(asList(fetchedAuditLog));
         setSupplierPerformance(asList(fetchedSupplierPerf));
-        lastFetchTime = Date.now();
+        lastFetchTimeRef.current = Date.now();
       } catch (e) {
         console.error("Failed to load application data", e);
       } finally {
-        isFetching = false;
+        isFetchingRef.current = false;
       }
-    }
+  }, []);
 
+  // Fetch initial data on mount and on window focus
+  useEffect(() => {
     refreshAll().finally(() => setLoading(false));
 
     const handleFocus = () => refreshAll();
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, []);
+  }, [refreshAll]);
 
   // --- Expected Receipts / GRN flow ---
   async function addExpectedReceipt({ supplier, eta, itemId, quantity, storeId }) {
@@ -816,6 +816,7 @@ export function AppDataProvider({ children }) {
     items,
     setItems,
     refreshItems,
+    refreshAll,
     addItem,
     expectedReceipts,
     addExpectedReceipt,

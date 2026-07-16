@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useAppData();
+  const { setUser, refreshAll } = useAppData();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,6 +22,7 @@ export default function LoginPage() {
       });
       const me = await apiFetch('/api/auth/me');
       setUser(me);
+      await refreshAll(); // Load all data for the newly authenticated user
       navigate('/');
     } catch (err) {
       setError(err.message || 'Invalid credentials');

@@ -139,7 +139,7 @@ public class MaterialRequestController {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId()));
             
             var inv = inventoryRepo.findByStoreAndItem(sourceStore, item).orElse(null);
-            BigDecimal available = inv != null ? inv.getQuantityOnHand() : BigDecimal.ZERO;
+            BigDecimal available = inv != null ? inv.getQuantityAvailable() : BigDecimal.ZERO;
             if (available.compareTo(l.requestedQuantity()) < 0) {
                 stockErrors.add(item.getName() + ": requested " + l.requestedQuantity() + " but only " + available + " available");
             }
