@@ -25,7 +25,7 @@ app:
   # For Resend: set APP_EMAIL_PROVIDER=resend and RESEND_API_KEY=re_xxxx
   email:
     provider: ${APP_EMAIL_PROVIDER:logging}
-    from-address: ${APP_EMAIL_FROM:noreply@newsaharaventures.com}
+    from-address: ${APP_EMAIL_FROM:notifications@talksal.co.zw}
     resend-api-key: ${RESEND_API_KEY:}
     ses-region: ${APP_EMAIL_SES_REGION:us-east-1}
 
