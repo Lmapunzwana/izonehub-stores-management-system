@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Truck, Download, Plus, Mail, Phone, X, Save } from "lucide-react";
+import { Truck, Download, Plus, Mail, Phone, X, Save, Star } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
 
@@ -159,7 +159,7 @@ export default function SuppliersPage() {
                 </td>
                 <td>{s.leadTime} days</td>
                 <td>{s.accuracy != null ? `${s.accuracy}%` : "—"}</td>
-                <td>{s.rating != null ? `★ ${s.rating}` : "—"}</td>
+                <td>{s.rating != null ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Star size={12} fill="#f59e0b" color="#f59e0b" /> {s.rating}</span> : "—"}</td>
                 <td>
                   <div className="action-buttons">
                     <button className="btn">View</button>

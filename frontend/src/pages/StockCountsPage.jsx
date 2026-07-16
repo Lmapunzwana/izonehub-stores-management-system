@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import {
   ClipboardList, Plus, CheckCircle, TrendingDown, TrendingUp,
   FileText, Search, Filter, RefreshCw, AlertTriangle, CheckCircle2,
+  Package, ClipboardCheck, Clock
 } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
@@ -276,10 +277,10 @@ function CountSession({ count, stores, submitCount, postStockCount, downloadFile
       {/* Overview stat cards */}
       <div style={{ display: "flex", gap: 1, background: "#f1f5f9", borderBottom: "1px solid #e2e8f0" }}>
         {[
-          { label: "Total SKUs", value: totalSKUs, icon: "📦", color: "#3b82f6" },
-          { label: "Counted", value: counted, icon: "✅", color: "#8b5cf6" },
-          { label: "Matching", value: matched, icon: "✔", color: "#10b981" },
-          { label: "Variance", value: variances, icon: "⚠", color: variances > 0 ? "#f59e0b" : "#10b981" },
+          { label: "Total SKUs", value: totalSKUs, icon: <Package size={22} />, color: "#3b82f6" },
+          { label: "Counted", value: counted, icon: <ClipboardCheck size={22} />, color: "#8b5cf6" },
+          { label: "Matching", value: matched, icon: <CheckCircle2 size={22} />, color: "#10b981" },
+          { label: "Variance", value: variances, icon: <AlertTriangle size={22} />, color: variances > 0 ? "#f59e0b" : "#10b981" },
         ].map(card => (
           <div key={card.label} style={{
             flex: 1, padding: "16px 20px", background: "#fff", textAlign: "center",
@@ -401,11 +402,14 @@ function CountSession({ count, stores, submitCount, postStockCount, downloadFile
                 </td>
                 <td>
                   <Badge type={STATUS_TYPE[row.status] || "default"}>
-                    {row.status === "Matched"   ? "✅ Matched"  :
-                     row.status === "Shortage"  ? "🔴 Shortage" :
-                     row.status === "Surplus"   ? "🟡 Surplus"  :
-                     row.status === "Uncounted" ? "⬜ Pending"  :
-                     row.status}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {row.status === "Matched"   ? <CheckCircle2 size={14} />  :
+                       row.status === "Shortage"  ? <TrendingDown size={14} /> :
+                       row.status === "Surplus"   ? <TrendingUp size={14} />  :
+                       row.status === "Uncounted" ? <Clock size={14} />  :
+                       null}
+                      {row.status}
+                    </div>
                   </Badge>
                 </td>
               </tr>

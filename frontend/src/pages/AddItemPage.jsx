@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Save, ChevronsUpDown, Package } from "lucide-react";
+import { X, Save, ChevronsUpDown, Package, CheckCircle2 } from "lucide-react";
 import { useAppData } from "../context/AppDataContext";
 import { apiFetch } from "../api";
 
@@ -216,8 +216,8 @@ export default function AddItemPage() {
 
         <div className="actions-row">
           {saved && (
-            <span style={{ color: "#16a34a", fontWeight: 600, marginRight: "auto" }}>
-              ✓ Item saved successfully!
+            <span style={{ color: "#16a34a", fontWeight: 600, marginRight: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+              <CheckCircle2 size={16} /> Item saved successfully!
             </span>
           )}
           <button type="button" className="ch-btn ch-btn--outline" onClick={onCancel} disabled={saving}>

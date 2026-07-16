@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Check, X, MapPin, Users } from "lucide-react";
+import { Plus, Check, X, MapPin, Users, AlertTriangle } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
@@ -139,8 +139,8 @@ export default function StoresPage() {
             }} />
           </div>
           {atCapacity && (
-            <div style={{ fontSize: 13, color: "#dc2626", marginTop: 8, fontWeight: 500 }}>
-              ⚠ Capacity reached. Increase your subscription limit to add more stores.
+            <div style={{ fontSize: 13, color: "#dc2626", marginTop: 8, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={14} /> Capacity reached. Increase your subscription limit to add more stores.
             </div>
           )}
         </div>

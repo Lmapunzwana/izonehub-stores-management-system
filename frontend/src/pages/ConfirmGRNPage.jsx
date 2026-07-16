@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle, X, AlertTriangle } from "lucide-react";
+import { CheckCircle, CheckCircle2, X, AlertTriangle } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
 
@@ -79,7 +79,7 @@ export default function ConfirmGRNPage() {
           title="Confirm Goods Received Note"
           status={
             confirmed
-              ? { label: "Confirmed ✓", variant: "success" }
+              ? { label: "Confirmed", variant: "success" }
               : { label: "Awaiting Physical Count", variant: "warning" }
           }
         />
@@ -176,7 +176,7 @@ export default function ConfirmGRNPage() {
                     {variance === null ? (
                       <span style={{ color: "#94a3b8" }}>—</span>
                     ) : variance === 0 ? (
-                      <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Match</span>
+                      <span style={{ color: "#10b981", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><CheckCircle2 size={14}/> Match</span>
                     ) : (
                       <span style={{ color: variance < 0 ? "#dc2626" : "#f59e0b", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                         <AlertTriangle size={14} />
@@ -224,7 +224,7 @@ export default function ConfirmGRNPage() {
               style={(!receipt || saving || confirmed) ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
             >
               <CheckCircle size={16} />
-              {saving ? "Confirming…" : confirmed ? "Confirmed ✓" : "Confirm Receipt"}
+              {saving ? "Confirming…" : confirmed ? "Confirmed" : "Confirm Receipt"}
             </button>
           </div>
         </div>
