@@ -134,8 +134,8 @@ BEGIN
             CASE WHEN i < 35 THEN v_qty ELSE 0 END,
             CASE WHEN i <= 30 THEN v_qty ELSE 0 END);
         
-        INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-        VALUES (gen_random_uuid(), v_timestamp, v_site_mgr_id, 'Site Manager', 'CREATE', 'MATERIAL_REQUEST', v_req_id::text, 'Created material request');
+        INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+        VALUES (gen_random_uuid(), v_timestamp, 'Site Manager', 'CREATE', 'MATERIAL_REQUEST', v_req_id::text, 'Created material request');
 
         -- B. If Dispatched
         IF i < 35 THEN
@@ -143,8 +143,8 @@ BEGIN
             INSERT INTO dispatch (id, created_at, material_request_id, dispatched_by_id, collector_name, collector_employee_id, dispatched_at)
             VALUES (gen_random_uuid(), v_timestamp, v_req_id, v_central_mgr_id, 'Truck Driver Bob', 'EMP-001', v_timestamp);
 
-            INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-            VALUES (gen_random_uuid(), v_timestamp, v_central_mgr_id, 'Central Manager', 'DISPATCH', 'MATERIAL_REQUEST', v_req_id::text, 'Dispatched materials to site');
+            INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+            VALUES (gen_random_uuid(), v_timestamp, 'Central Manager', 'DISPATCH', 'MATERIAL_REQUEST', v_req_id::text, 'Dispatched materials to site');
 
             -- C. If Received
             IF i <= 30 THEN
@@ -152,8 +152,8 @@ BEGIN
                 INSERT INTO receipt (id, created_at, material_request_id, received_by_id, received_at, status)
                 VALUES (gen_random_uuid(), v_timestamp, v_req_id, v_site_mgr_id, v_timestamp, 'COMPLETED');
 
-                INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-                VALUES (gen_random_uuid(), v_timestamp, v_site_mgr_id, 'Site Manager', 'RECEIVE', 'MATERIAL_REQUEST', v_req_id::text, 'Confirmed receipt of materials');
+                INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+                VALUES (gen_random_uuid(), v_timestamp, 'Site Manager', 'RECEIVE', 'MATERIAL_REQUEST', v_req_id::text, 'Confirmed receipt of materials');
 
                 -- D. Simulate Consumption (MIV) out of site inventory
                 IF (i % 3 = 0) THEN
@@ -165,8 +165,8 @@ BEGIN
                     INSERT INTO miv_line (id, created_at, miv_id, item_id, issued_quantity, returned_quantity)
                     VALUES (gen_random_uuid(), v_timestamp, v_cons_id, v_item_id, v_qty / 2, 0);
                     
-                    INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-                    VALUES (gen_random_uuid(), v_timestamp, v_site_mgr_id, 'Site Manager', 'ISSUE', 'MATERIAL_ISSUE_VOUCHER', v_cons_id::text, 'Issued materials for project consumption');
+                    INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+                    VALUES (gen_random_uuid(), v_timestamp, 'Site Manager', 'ISSUE', 'MATERIAL_ISSUE_VOUCHER', v_cons_id::text, 'Issued materials for project consumption');
                 END IF;
             END IF;
         END IF;
@@ -185,8 +185,8 @@ BEGIN
             INSERT INTO goods_received_note (id, created_at, reference_number, expected_receipt_id, store_id, received_by_id, received_at, status)
             VALUES (gen_random_uuid(), v_timestamp + INTERVAL '2 days', 'GRN-SUPP-' || i, v_grn_id, v_central_store_id, v_central_mgr_id, v_timestamp + INTERVAL '2 days', 'COMPLETED');
             
-            INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-            VALUES (gen_random_uuid(), v_timestamp + INTERVAL '2 days', v_central_mgr_id, 'Central Manager', 'RECEIVE', 'EXPECTED_RECEIPT', v_grn_id::text, 'Received supplies from Mega Builders');
+            INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+            VALUES (gen_random_uuid(), v_timestamp + INTERVAL '2 days', 'Central Manager', 'RECEIVE', 'EXPECTED_RECEIPT', v_grn_id::text, 'Received supplies from Mega Builders');
         END IF;
     END LOOP;
 
@@ -202,8 +202,8 @@ BEGIN
         (gen_random_uuid(), v_timestamp, v_count_id, v_item_timber, 50, 50, 0, 'ZERO_VARIANCE_CONFIRMED'),
         (gen_random_uuid(), v_timestamp, v_count_id, v_item_steel, 200, 202, 2, 'ADJUSTMENT_RAISED');
 
-    INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-    VALUES (gen_random_uuid(), v_timestamp, v_site_mgr_id, 'Site Manager', 'INITIATE', 'STOCK_COUNT', v_count_id::text, 'Initiated stock count');
+    INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+    VALUES (gen_random_uuid(), v_timestamp, 'Site Manager', 'INITIATE', 'STOCK_COUNT', v_count_id::text, 'Initiated stock count');
 
     -- Adjustments for the count
     INSERT INTO stock_adjustment (id, created_at, reference_number, store_id, item_id, adjusted_by_id, reason_code, quantity_before, quantity_after, notes, requires_countersignature, countersigned_by_id)
@@ -211,7 +211,7 @@ BEGIN
         (gen_random_uuid(), v_timestamp + INTERVAL '1 day', 'ADJ-1', v_site_store_id, v_item_cement, v_site_mgr_id, 'DAMAGED_WRITE_OFF', 100, 95, 'Damaged cement bags found', true, v_admin_id),
         (gen_random_uuid(), v_timestamp + INTERVAL '1 day', 'ADJ-2', v_site_store_id, v_item_steel, v_site_mgr_id, 'SURPLUS_FOUND', 200, 202, 'Extra steel bars found in yard', true, v_admin_id);
 
-    INSERT INTO audit_log (id, timestamp, actor_id, actor_name, action, entity_type, entity_id, details)
-    VALUES (gen_random_uuid(), v_timestamp + INTERVAL '1 day', v_admin_id, 'System Admin', 'APPROVE', 'STOCK_ADJUSTMENT', v_count_id::text, 'Approved stock count adjustments');
+    INSERT INTO audit_log (id, performed_at, performed_by, action, entity_type, entity_id, description)
+    VALUES (gen_random_uuid(), v_timestamp + INTERVAL '1 day', 'System Admin', 'APPROVE', 'STOCK_ADJUSTMENT', v_count_id::text, 'Approved stock count adjustments');
 
 END $$;
