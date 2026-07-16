@@ -51,19 +51,31 @@ export default function AddItemToRequestPage() {
           const stockMap = {};
           arr.forEach(r => {
              stockMap[r.itemCode] = {
+                 id: r.itemId,
+                 name: r.itemName,
                  available: Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0)),
                  reserved: Number(r.reserved || 0),
                  incoming: Number(r.inTransit || 0)
              };
           });
           setSourceStoreStock(stockMap);
+          
+          // Auto-select the first available item if we haven't selected one
+          const keys = Object.keys(stockMap);
+          if (keys.length > 0) {
+              setSelectedItem(stockMap[keys[0]].name);
+          }
         })
         .catch((e) => console.error("Failed to fetch source store stock", e));
     }
   }, [sourceStoreId]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  const selectedItemCode = items.find((i) => i.name === selectedItem)?.code;
+  
+  // Find the selected item's code by searching our source stock map
+  const selectedItemCode = Object.keys(sourceStoreStock).find(
+    code => sourceStoreStock[code].name === selectedItem
+  );
   
   const sourceStats = (sourceStoreId && selectedItemCode && sourceStoreStock[selectedItemCode]) 
         || { available: 0, reserved: 0, incoming: 0 };
@@ -90,7 +102,8 @@ export default function AddItemToRequestPage() {
       requestingStoreId,
       sourceStoreId,
       quantity,
-      item: selectedItem,
+      itemId: sourceStats.id, // <--- Pass the actual item UUID
+      item: selectedItem, // (Keep for local UI state/display fallback)
     });
     setItemsInRequest((rows) => [
       ...rows,
@@ -158,8 +171,8 @@ export default function AddItemToRequestPage() {
                 value={selectedItem}
                 onChange={(e) => setSelectedItem(e.target.value)}
               >
-                {items.map((i) => (
-                  <option key={i.code}>{i.name}</option>
+                {Object.values(sourceStoreStock).map((i) => (
+                  <option key={i.name}>{i.name}</option>
                 ))}
               </select>
             </div>

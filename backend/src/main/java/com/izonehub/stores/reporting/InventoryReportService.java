@@ -28,6 +28,7 @@ public class InventoryReportService {
                 .filter(inv -> filter.itemId()  == null || inv.getItem().getId().equals(filter.itemId()))
                 .map(inv -> new CurrentStockRow(
                         inv.getStore().getName(),
+                        inv.getItem().getId(),
                         inv.getItem().getCode(),
                         inv.getItem().getName(),
                         inv.getQuantityOnHand(),
