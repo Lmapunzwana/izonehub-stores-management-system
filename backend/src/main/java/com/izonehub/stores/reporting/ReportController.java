@@ -51,8 +51,28 @@ public class ReportController {
 
         ReportFilter filter = new ReportFilter(null, null, storeId, itemId, projectId, category);
         List<CurrentStockRow> rows = reportService.currentStock(filter);
-        // Allow all authorized users to see global stock levels, 
-        // which is required for Site Managers to know what they can request from the Central Store.
+
+        if (email != null) {
+            com.izonehub.stores.user.AppUser user = users.findByEmail(email).orElse(null);
+            if (user != null) {
+                boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+                if (isSiteManager) {
+                    java.util.List<com.izonehub.stores.store.Store> managedStores = storeRepo.findByManager_Id(user.getId());
+                    java.util.List<String> allowedStoreNames = new java.util.ArrayList<>(managedStores.stream().map(com.izonehub.stores.store.Store::getName).toList());
+                    
+                    if (storeId != null) {
+                        com.izonehub.stores.store.Store queriedStore = storeRepo.findById(storeId).orElse(null);
+                        if (queriedStore != null && queriedStore.getType() == com.izonehub.stores.store.StoreType.CENTRAL) {
+                            allowedStoreNames.add(queriedStore.getName());
+                        }
+                    }
+                    
+                    rows = rows.stream().filter(r -> allowedStoreNames.contains(r.storeName())).toList();
+                }
+            }
+        }
 
         if ("csv".equalsIgnoreCase(format)) {
             byte[] csv = exportService.currentStockCsv(rows);

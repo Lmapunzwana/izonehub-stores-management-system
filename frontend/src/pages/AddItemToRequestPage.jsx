@@ -42,8 +42,34 @@ export default function AddItemToRequestPage() {
   const [selectedItem, setSelectedItem] = useState(items[0]?.name || "");
   const [quantity, setQuantity] = useState(30);
 
+  const [sourceStoreStock, setSourceStoreStock] = useState({});
+  useEffect(() => {
+    if (sourceStoreId) {
+      apiFetch(`/api/reports/current-stock?storeId=${sourceStoreId}`)
+        .then((res) => {
+          const arr = Array.isArray(res) ? res : res.content || [];
+          const stockMap = {};
+          arr.forEach(r => {
+             stockMap[r.itemCode] = {
+                 available: Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0)),
+                 reserved: Number(r.reserved || 0),
+                 incoming: Number(r.inTransit || 0)
+             };
+          });
+          setSourceStoreStock(stockMap);
+        })
+        .catch((e) => console.error("Failed to fetch source store stock", e));
+    }
+  }, [sourceStoreId]);
+
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  const available = items.find((i) => i.name === selectedItem)?.available ?? 0;
+  const selectedItemCode = items.find((i) => i.name === selectedItem)?.code;
+  
+  const sourceStats = (sourceStoreId && selectedItemCode && sourceStoreStock[selectedItemCode]) 
+        || { available: 0, reserved: 0, incoming: 0 };
+        
+  const available = sourceStats.available;
+    
   const requestedNum = Number(quantity) || 0;
   const isValid = requestedNum > 0 && requestedNum <= available && !!selectedProjectId && !!sourceStoreId;
 
@@ -170,14 +196,14 @@ export default function AddItemToRequestPage() {
               <div className="stat-label">Reserved</div>
               <div className="stat-value-row">
                 <Lock size={18} color="#ea580c" />
-                {items.find((i) => i.name === selectedItem)?.reserved ?? 0}
+                {sourceStats.reserved}
               </div>
             </div>
             <div className="stat-block">
               <div className="stat-label">Incoming</div>
               <div className="stat-value-row">
                 <Truck size={18} color="#2563eb" />
-                {items.find((i) => i.name === selectedItem)?.incoming ?? 0}
+                {sourceStats.incoming}
               </div>
             </div>
             <div className="stat-block">
