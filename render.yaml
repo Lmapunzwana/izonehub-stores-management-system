@@ -49,8 +49,9 @@ services:
       - key: COMPANY_EMAIL
         value: "info@newsaharaventures.com"
         
-      # Emails (Optional - Set these in the Render dashboard later)
-      # - key: APP_EMAIL_PROVIDER
-      #   value: resend
-      # - key: RESEND_API_KEY
-      #   value: <your-resend-key>
+      # Emails
+      - key: APP_EMAIL_PROVIDER
+        value: "resend"
+      - key: APP_EMAIL_FROM
+        value: "notifications@talksal.co.zw"
+      # IMPORTANT: Add RESEND_API_KEY manually in the Render Dashboard under Environment Variables. Do not hardcode it here.
