@@ -57,15 +57,17 @@ public class SupplierPerformanceService {
                     .toList();
 
             BigDecimal totalExpected = lines.stream()
-                    .map(ExpectedReceiptLine::getExpectedQuantity)
+                    .map(l -> l.getExpectedQuantity() != null ? l.getExpectedQuantity() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalReceived = lines.stream()
-                    .map(ExpectedReceiptLine::getReceivedQuantity)
+                    .map(l -> l.getReceivedQuantity() != null ? l.getReceivedQuantity() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             long totalLines = lines.size();
             long accurateLines = lines.stream()
                     .filter(l -> l.getCondition() == ReceiptLineCondition.GOOD
+                            && l.getReceivedQuantity() != null
+                            && l.getExpectedQuantity() != null
                             && l.getReceivedQuantity().compareTo(l.getExpectedQuantity()) == 0)
                     .count();
             long defectiveLines = lines.stream()
@@ -111,6 +113,8 @@ public class SupplierPerformanceService {
                     long total = monthLines.size();
                     long accurate = monthLines.stream()
                             .filter(l -> l.getCondition() == ReceiptLineCondition.GOOD
+                                    && l.getReceivedQuantity() != null
+                                    && l.getExpectedQuantity() != null
                                     && l.getReceivedQuantity().compareTo(l.getExpectedQuantity()) == 0)
                             .count();
                     String[] parts = e.getKey().split("-");

@@ -19,6 +19,7 @@ export default function ConsumptionPage() {
   const [consumedAt, setConsumedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [siteStock, setSiteStock] = useState({});
   const [loadingStock, setLoadingStock] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // Fetch stock specific to the current site store
   useEffect(() => {
@@ -47,7 +48,8 @@ export default function ConsumptionPage() {
 
   async function handleConsume(e) {
     e.preventDefault();
-    if (!consumeItem || !consumeQty) return;
+    if (!consumeItem || !consumeQty || busy) return;
+    setBusy(true);
     const qty = Number(consumeQty);
     if (isNaN(qty) || qty <= 0) {
       showAlert({ title: "Invalid Quantity", message: "Please enter a valid positive quantity.", type: "warning" });
@@ -83,6 +85,8 @@ export default function ConsumptionPage() {
     } catch (err) {
       console.error(err);
       showAlert({ title: "Error", message: "Failed to consume item. " + (err?.message || "Unknown error"), type: "danger" });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -263,13 +267,14 @@ export default function ConsumptionPage() {
                 <button
                   type="button"
                   className="ch-btn ch-btn--outline"
+                  disabled={busy}
                   onClick={() => { setConsumeModalOpen(false); setConsumeItem(null); }}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="ch-btn ch-btn--primary">
+                <button type="submit" className="ch-btn ch-btn--primary" disabled={busy}>
                   <Flame size={14} />
-                  Confirm Consumption
+                  {busy ? "Consuming…" : "Confirm Consumption"}
                 </button>
               </div>
             </form>

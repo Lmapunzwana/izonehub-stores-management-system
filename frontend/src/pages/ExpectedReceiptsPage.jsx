@@ -37,6 +37,18 @@ export default function ExpectedReceiptsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  async function onUpdateStatus(receiptNo) {
+    setBusyId(receiptNo);
+    try {
+      await advanceReceiptStatus(receiptNo);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function onSaveNewReceipt() {
     setError(null);
@@ -212,10 +224,11 @@ export default function ExpectedReceiptsPage() {
                     {canAdvance && (
                       <button
                         className="ch-btn ch-btn--ghost"
-                        onClick={() => advanceReceiptStatus(r.receiptNo)}
+                        disabled={busyId === r.receiptNo}
+                        onClick={() => onUpdateStatus(r.receiptNo)}
                       >
                         <Edit size={16} />
-                        Update Status
+                        {busyId === r.receiptNo ? "Updating…" : "Update Status"}
                       </button>
                     )}
                     {r.statusIndex === 1 && (

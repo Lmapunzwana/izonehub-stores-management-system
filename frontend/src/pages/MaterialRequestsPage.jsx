@@ -120,7 +120,7 @@ export default function MaterialRequestsPage() {
                         onClick={() => onApprove(r)}
                       >
                         <Check size={16} />
-                        Approve
+                        {busyId === r.id ? "Approving…" : "Approve"}
                       </button>
                       <button
                         type="button"
@@ -183,7 +183,7 @@ export default function MaterialRequestsPage() {
                 disabled={!rejectReason.trim() || busyId === rejectModalId}
                 onClick={onReject}
               >
-                Confirm Rejection
+                {busyId === rejectModalId ? "Rejecting…" : "Confirm Rejection"}
               </button>
             </div>
           </div>
