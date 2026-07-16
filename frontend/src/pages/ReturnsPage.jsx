@@ -25,6 +25,7 @@ export default function ReturnsPage() {
   const [initiateModal, setInitiateModal] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState(completedRequests[0]?.id || "");
   const [returnLines, setReturnLines] = useState([]);
+  const [initiating, setInitiating] = useState(false);
 
   function openInitiateModal() {
     const req = completedRequests.find(r => r.id === selectedRequestId) || completedRequests[0];
@@ -82,6 +83,7 @@ export default function ReturnsPage() {
       }
     }
 
+    setInitiating(true);
     try {
       await initiateReturn(selectedRequestId, payloadLines);
       setInitiateModal(false);
@@ -89,6 +91,8 @@ export default function ReturnsPage() {
       showAlert({ title: "Return Initiated", message: "Return has been submitted and is awaiting central store confirmation.", type: "success" });
     } catch (err) {
       showAlert({ title: "Error", message: "Failed to initiate return. " + (err?.message || ""), type: "danger" });
+    } finally {
+      setInitiating(false);
     }
   }
 
@@ -278,11 +282,11 @@ export default function ReturnsPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button type="button" className="btn btn-outline" onClick={() => setInitiateModal(false)}>
+                <button type="button" className="btn btn-outline" disabled={initiating} onClick={() => setInitiateModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Submit Return
+                <button type="submit" className="btn btn-primary" disabled={initiating}>
+                  {initiating ? "Submitting…" : "Submit Return"}
                 </button>
               </div>
             </form>

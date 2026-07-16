@@ -21,6 +21,7 @@ export default function ProjectsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newProject, setNewProject] = useState({ code: "", name: "", budget: "", siteStoreId: "" });
   const [showClosed, setShowClosed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Site managers only see projects for their assigned store
   const visibleProjects = (() => {
@@ -32,14 +33,19 @@ export default function ProjectsPage() {
 
   async function onSaveNewProject() {
     if (!newProject.code.trim() || !newProject.name.trim() || !newProject.siteStoreId) return;
-    await addProject({
-      code:        newProject.code,
-      name:        newProject.name,
-      budget:      newProject.budget ? Number(newProject.budget) : undefined,
-      siteStoreId: newProject.siteStoreId,
-    });
-    setNewProject({ code: "", name: "", budget: "", siteStoreId: "" });
-    setShowForm(false);
+    setSaving(true);
+    try {
+      await addProject({
+        code:        newProject.code,
+        name:        newProject.name,
+        budget:      newProject.budget ? Number(newProject.budget) : undefined,
+        siteStoreId: newProject.siteStoreId,
+      });
+      setNewProject({ code: "", name: "", budget: "", siteStoreId: "" });
+      setShowForm(false);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -121,9 +127,9 @@ export default function ProjectsPage() {
               <button
                 className="btn btn-primary"
                 onClick={onSaveNewProject}
-                disabled={!newProject.siteStoreId || !newProject.code.trim() || !newProject.name.trim()}
+                disabled={!newProject.siteStoreId || !newProject.code.trim() || !newProject.name.trim() || saving}
               >
-                Save Project
+                {saving ? "Saving…" : "Save Project"}
               </button>
             </div>
           </div>

@@ -12,6 +12,7 @@ export default function StoresPage() {
   const [showForm, setShowForm] = useState(false);
   const [newStore, setNewStore] = useState({ name: "", type: "SITE", location: "", managerId: "" });
   const [error, setError] = useState(null);
+  const [savingStore, setSavingStore] = useState(false);
   const [sub, setSub] = useState(null);
   const [editingManagerId, setEditingManagerId] = useState(null); // storeId being edited
   const [newManagerId, setNewManagerId] = useState("");
@@ -36,6 +37,7 @@ export default function StoresPage() {
       setError(`Store capacity reached (${operationalCount}/${allowedSlots}). Increase your subscription limit first.`);
       return;
     }
+    setSavingStore(true);
     try {
       await addStore({
         name:      newStore.name,
@@ -47,6 +49,8 @@ export default function StoresPage() {
       setShowForm(false);
     } catch (e) {
       setError(e.message || "Failed to add store.");
+    } finally {
+      setSavingStore(false);
     }
   }
 
@@ -214,8 +218,8 @@ export default function StoresPage() {
             <div className="full actions-row">
               {error && !error.includes("capacity") && <span style={{ color: "#dc2626", marginRight: "auto" }}>{error}</span>}
               <button className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={onSaveNewStore} disabled={atCapacity}>
-                Save Store
+              <button className="btn btn-primary" onClick={onSaveNewStore} disabled={atCapacity || savingStore}>
+                {savingStore ? "Saving…" : "Save Store"}
               </button>
             </div>
           </div>

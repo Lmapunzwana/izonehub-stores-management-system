@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   function toggleRole(role) {
     setForm((f) => ({
@@ -41,6 +42,7 @@ export default function UsersPage() {
       setError("Full name, email, temporary password, and at least one role are required.");
       return;
     }
+    setCreating(true);
     try {
       await addUser(form);
       const updated = await apiFetch("/api/users");
@@ -58,6 +60,8 @@ export default function UsersPage() {
       setForm(EMPTY_FORM);
     } catch (e) {
       setError(e?.message || "Could not create user — check the password meets policy and the email isn't already in use.");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -169,11 +173,11 @@ export default function UsersPage() {
           </div>
 
           <div className="full actions-row">
-            <button className="btn" onClick={() => setForm(EMPTY_FORM)}>
+            <button className="btn" onClick={() => setForm(EMPTY_FORM)} disabled={creating}>
               Clear
             </button>
-            <button className="btn btn-primary" onClick={onCreateUser}>
-              Create User
+            <button className="btn btn-primary" onClick={onCreateUser} disabled={creating}>
+              {creating ? "Creating…" : "Create User"}
             </button>
           </div>
         </div>
@@ -234,7 +238,7 @@ export default function UsersPage() {
                   <div className="action-buttons">
                     {u.locked && (
                       <button className="btn" disabled={busyId === u.id} onClick={() => onUnlock(u.id)}>
-                        Unlock
+                        {busyId === u.id ? "Unlocking…" : "Unlock"}
                       </button>
                     )}
                     {u.active && (
@@ -243,7 +247,7 @@ export default function UsersPage() {
                         disabled={busyId === u.id}
                         onClick={() => onDeactivate(u.id)}
                       >
-                        Deactivate
+                        {busyId === u.id ? "Deactivating…" : "Deactivate"}
                       </button>
                     )}
                   </div>

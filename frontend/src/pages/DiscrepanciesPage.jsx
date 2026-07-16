@@ -106,7 +106,7 @@ export default function DiscrepanciesPage() {
                             title={!(notesById[d.id]?.trim()) ? "Enter resolution notes to enable write-off" : "Write off frozen stock permanently"}
                             onClick={() => onResolve(d, false)}
                           >
-                            {busyW ? "…" : "Write Off"}
+                            {busyW ? "Writing…" : "Write Off"}
                           </button>
                           <button
                             className="btn btn-success"
@@ -114,7 +114,7 @@ export default function DiscrepanciesPage() {
                             title="Return frozen stock to on-hand"
                             onClick={() => onResolve(d, true)}
                           >
-                            {busyR ? "…" : "Mark Recovered"}
+                            {busyR ? "Recovering…" : "Mark Recovered"}
                           </button>
                         </div>
                         {!(notesById[d.id]?.trim()) && (

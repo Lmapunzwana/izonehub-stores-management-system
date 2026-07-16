@@ -20,6 +20,7 @@ export default function AddItemToRequestPage() {
   const navigate = useNavigate();
   const { items, addMaterialRequest, projects, stores } = useAppData();
   const [itemsInRequest, setItemsInRequest] = useState([]);
+  const [busy, setBusy] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || "");
   const [allStores, setAllStores] = useState([]);
   
@@ -90,26 +91,34 @@ export default function AddItemToRequestPage() {
   }
 
   async function onAddItem() {
-    if (!isValid || !selectedProject) return;
+    if (!isValid || !selectedProject || busy) return;
+    setBusy(true);
     // A project's material requests are always requesting stock into its
     // own dedicated site store — there's no separate "which store is this
     // for" choice once a project is picked.
     const requestingStoreId = selectedProject.original.siteStore?.id;
-    if (!requestingStoreId) return;
+    if (!requestingStoreId) {
+      setBusy(false);
+      return;
+    }
 
-    await addMaterialRequest({
-      projectId: selectedProject.id,
-      requestingStoreId,
-      sourceStoreId,
-      quantity,
-      itemId: sourceStats.id, // <--- Pass the actual item UUID
-      item: selectedItem, // (Keep for local UI state/display fallback)
-    });
-    setItemsInRequest((rows) => [
-      ...rows,
-      { item: selectedItem, quantity, status: "Pending Approval" },
-    ]);
-    setQuantity(0);
+    try {
+      await addMaterialRequest({
+        projectId: selectedProject.id,
+        requestingStoreId,
+        sourceStoreId,
+        quantity,
+        itemId: sourceStats.id, // <--- Pass the actual item UUID
+        item: selectedItem, // (Keep for local UI state/display fallback)
+      });
+      setItemsInRequest((rows) => [
+        ...rows,
+        { item: selectedItem, quantity, status: "Pending Approval" },
+      ]);
+      setQuantity(0);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function onRemove(index) {
@@ -325,11 +334,11 @@ export default function AddItemToRequestPage() {
               type="button"
               className="ch-btn ch-btn--primary"
               onClick={onAddItem}
-              disabled={!isValid}
-              style={!isValid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              disabled={!isValid || busy}
+              style={(!isValid || busy) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               <Plus size={16} />
-              Add Item
+              {busy ? "Adding…" : "Add Item"}
             </button>
           </div>
         </div>
