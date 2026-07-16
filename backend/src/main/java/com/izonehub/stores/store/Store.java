@@ -7,6 +7,7 @@ public class Store extends BaseEntity{
     @Column(nullable=false,unique=true) private String name;
     @Enumerated(EnumType.STRING)@Column(nullable=false) private StoreType type;
     @Column(nullable=false) private String location;
+    @JsonIgnoreProperties("assignedStore")
     @ManyToOne(fetch=FetchType.LAZY) private AppUser manager;
 
     // A SITE store is usually created for a specific project; when that

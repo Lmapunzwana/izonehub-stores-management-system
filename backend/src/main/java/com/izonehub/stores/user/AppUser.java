@@ -30,6 +30,7 @@ public class AppUser extends BaseEntity {
     @Column(name = "role", nullable = false)
     private Set<Role> roles = new HashSet<>();
 
+    @JsonIgnoreProperties("manager")
     @ManyToOne(fetch=FetchType.LAZY)
     private Store assignedStore;
 
