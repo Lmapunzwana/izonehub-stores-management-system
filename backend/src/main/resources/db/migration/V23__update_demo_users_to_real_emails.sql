@@ -3,8 +3,8 @@
 -- Update System Admin
 UPDATE app_users 
 SET email = 'lmapunzwana@gmail.com', 
-    first_name = 'System', 
-    last_name = 'Admin' 
+    first_name = 'Leroy', 
+    last_name = 'Mapunzwana' 
 WHERE email = 'admin@demo.com';
 
 -- Update Central Manager
