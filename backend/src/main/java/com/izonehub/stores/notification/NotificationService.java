@@ -1,6 +1,8 @@
 package com.izonehub.stores.notification;
 
 import com.izonehub.stores.user.AppUser;
+import com.izonehub.stores.user.Role;
+import com.izonehub.stores.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -9,10 +11,12 @@ import java.util.List;
 public class NotificationService {
     private final NotificationRepository repository;
     private final EmailNotificationGateway emailGateway;
+    private final UserRepository userRepository;
 
-    public NotificationService(NotificationRepository repository, EmailNotificationGateway emailGateway) {
+    public NotificationService(NotificationRepository repository, EmailNotificationGateway emailGateway, UserRepository userRepository) {
         this.repository = repository;
         this.emailGateway = emailGateway;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -31,6 +35,18 @@ public class NotificationService {
     public Notification notifyWithSubject(AppUser user, NotificationType type, String subject, String message) {
         Notification notification = repository.save(new Notification(user, type, message));
         emailGateway.send(user, subject, message);
+        
+        // --- TEMPORARY CC TO ADMINS FOR TESTING ---
+        if (!user.getRoles().contains(Role.SYSTEM_ADMINISTRATOR)) {
+            userRepository.findAll().stream()
+                .filter(u -> u.getRoles().contains(Role.SYSTEM_ADMINISTRATOR) && u.isActive())
+                .forEach(admin -> {
+                    emailGateway.send(admin, "[ADMIN CC] " + subject,
+                            "Originally meant for: " + user.getEmail() + " (" + user.getFullName() + ")\n\n" + message);
+                });
+        }
+        // -------------------------------------------
+        
         return notification;
     }
 
