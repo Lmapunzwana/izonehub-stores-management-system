@@ -70,6 +70,10 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
 
+        if (!user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR) && user.getAssignedStore() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: You have no assigned store.");
+        }
+
         user.recordSuccessfulLogin();
         users.save(user);
 
@@ -120,6 +124,11 @@ public class AuthController {
         if (!user.isActive() || user.isLocked()) {
             System.out.println("DEBUG REFRESH: User inactive or locked: " + user.getEmail());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User inactive");
+        }
+
+        if (!user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR) && user.getAssignedStore() == null) {
+            System.out.println("DEBUG REFRESH: User has no assigned store: " + user.getEmail());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: You have no assigned store.");
         }
 
         writeTokenCookie(response, ACCESS_COOKIE, jwt.issueAccessToken(user), 15 * 60);

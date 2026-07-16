@@ -23,9 +23,11 @@ public class StockCountPdfService {
             DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH).withZone(ZoneId.systemDefault());
 
     private final CompanyProperties company;
+    private final com.izonehub.stores.audit.AuditLogRepository auditLogRepo;
 
-    public StockCountPdfService(CompanyProperties company) {
+    public StockCountPdfService(CompanyProperties company, com.izonehub.stores.audit.AuditLogRepository auditLogRepo) {
         this.company = company;
+        this.auditLogRepo = auditLogRepo;
     }
 
     public byte[] generate(StockCount count) {
@@ -158,6 +160,99 @@ public class StockCountPdfService {
             throw new IllegalStateException("Failed to generate stock count audit PDF", e);
         }
 
+        return out.toByteArray();
+    }
+
+    public byte[] generateFullAudit(StockCount count) {
+        Color brand = brandColor();
+        Color lightBrand = tint(brand, 0.88f);
+        Color gray = new Color(110, 110, 110);
+        Color rowAlt = new Color(247, 247, 247);
+
+        Font wordmarkFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, brand);
+        Font smallGray = FontFactory.getFont(FontFactory.HELVETICA, 8, gray);
+        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
+        Font refFont = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
+        Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
+        Font tableCellFont = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
+
+        Document doc = new Document(PageSize.A4, 40, 40, 34, 40);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+
+            PdfPTable letterhead = new PdfPTable(2);
+            letterhead.setWidthPercentage(100);
+            letterhead.setWidths(new float[]{1.3f, 1f});
+
+            PdfPCell logoCell = new PdfPCell();
+            logoCell.setBorder(Rectangle.NO_BORDER);
+            Image logo = tryLoadLogo();
+            if (logo != null) {
+                logo.scaleToFit(140, 46);
+                logoCell.addElement(logo);
+            } else {
+                logoCell.addElement(new Paragraph(safe(company.getName(), "Company Name"), wordmarkFont));
+            }
+            letterhead.addCell(logoCell);
+
+            PdfPCell contactCell = new PdfPCell();
+            contactCell.setBorder(Rectangle.NO_BORDER);
+            contactCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            contactCell.addElement(rightAligned(safe(company.getAddressLine1(), ""), smallGray));
+            letterhead.addCell(contactCell);
+            doc.add(letterhead);
+            doc.add(rule(brand, 1.6f, 10, 14));
+
+            Paragraph title = new Paragraph("COMPREHENSIVE SKU AUDIT REPORT", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(15);
+            doc.add(title);
+
+            Paragraph subtitle = new Paragraph("Stock Count Ref: AC-" + shortId(count.getId()) + " | Store: " + count.getStore().getName(), refFont);
+            subtitle.setAlignment(Element.ALIGN_CENTER);
+            subtitle.setSpacingAfter(20);
+            doc.add(subtitle);
+
+            List<com.izonehub.stores.audit.AuditLog> storeLogs = auditLogRepo.findByEntityTypeAndEntityIdOrderByPerformedAtDesc("INVENTORY", count.getStore().getId().toString());
+
+            for (StockCountLine line : count.getLines()) {
+                doc.add(new Paragraph("SKU: " + line.getItem().getName() + " (" + line.getItem().getCode() + ")", titleFont));
+                doc.add(spacer(10));
+
+                PdfPTable table = new PdfPTable(3);
+                table.setWidthPercentage(100);
+                table.setWidths(new float[]{1f, 3f, 1f});
+                table.addCell(headerCell("Date", tableHeaderFont, brand, Element.ALIGN_LEFT));
+                table.addCell(headerCell("Event Description", tableHeaderFont, brand, Element.ALIGN_LEFT));
+                table.addCell(headerCell("Performed By", tableHeaderFont, brand, Element.ALIGN_LEFT));
+
+                List<com.izonehub.stores.audit.AuditLog> skuLogs = storeLogs.stream()
+                        .filter(l -> l.getDescription() != null && l.getDescription().contains(line.getItem().getName()))
+                        .toList();
+
+                if (skuLogs.isEmpty()) {
+                    PdfPCell empty = bodyCell("No recent history found.", tableCellFont, Color.WHITE, Element.ALIGN_CENTER);
+                    empty.setColspan(3);
+                    table.addCell(empty);
+                } else {
+                    for (int i = 0; i < skuLogs.size(); i++) {
+                        com.izonehub.stores.audit.AuditLog lg = skuLogs.get(i);
+                        Color bg = (i % 2 == 0) ? Color.WHITE : rowAlt;
+                        table.addCell(bodyCell(DATE_FMT.format(lg.getPerformedAt()), tableCellFont, bg, Element.ALIGN_LEFT));
+                        table.addCell(bodyCell(lg.getDescription(), tableCellFont, bg, Element.ALIGN_LEFT));
+                        table.addCell(bodyCell(lg.getPerformedBy(), tableCellFont, bg, Element.ALIGN_LEFT));
+                    }
+                }
+                doc.add(table);
+                doc.add(spacer(25));
+            }
+            doc.close();
+        } catch (DocumentException e) {
+            throw new IllegalStateException("Failed to generate audit PDF", e);
+        }
         return out.toByteArray();
     }
 

@@ -143,7 +143,7 @@ export function AppDataProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [stockCounts, setStockCounts] = useState([]);
   const [batches, setBatches] = useState([]);
-  const [expiryItems, setExpiryItems] = useState([]);
+
   const [auditLog, setAuditLog] = useState([]);
   const [supplierPerformance, setSupplierPerformance] = useState([]);
   const [user, setUser] = useState(null);
@@ -152,17 +152,19 @@ export function AppDataProvider({ children }) {
   const [stores, setStores] = useState([]);
 
   function mapItem(i, stockByCode) {
-    const stock = stockByCode[i.code] || { onHand: 0, reserved: 0, inTransit: 0 };
+    const stock = stockByCode[i.code] || { onHand: 0, reserved: 0, inTransit: 0, frozen: 0 };
     const reorderPoint = Number(i.reorderThreshold || 0);
-    const lowStock = stock.onHand <= reorderPoint;
+    const available = Math.max(0, stock.onHand - stock.reserved);
+    const lowStock = available <= reorderPoint;
     return {
       id: i.id,
       code: i.code,
       name: i.name,
       category: typeof i.category === "string" ? i.category : i.category?.name,
-      available: stock.onHand - stock.reserved,
+      available,
       reserved: stock.reserved,
       incoming: stock.inTransit,
+      frozen: stock.frozen,
       reorderPoint,
       status: lowStock
         ? { label: "Low Stock", type: "danger" }
@@ -173,7 +175,7 @@ export function AppDataProvider({ children }) {
 
   async function refreshItems() {
     const [fetchedItems, fetchedStock] = await Promise.all([
-      apiFetch("/api/items").catch(() => []),
+      apiFetch("/api/items?size=1000").catch(() => []),
       // GET /api/reports/current-stock — Item itself has no quantity field;
       // stock lives per-store in StoreInventory. This report joins the two.
       apiFetch("/api/reports/current-stock").catch(() => []),
@@ -181,10 +183,11 @@ export function AppDataProvider({ children }) {
     const stockRows = asList(fetchedStock);
     const stockByCode = {};
     stockRows.forEach((row) => {
-      const agg = stockByCode[row.itemCode] || { onHand: 0, reserved: 0, inTransit: 0 };
+      const agg = stockByCode[row.itemCode] || { onHand: 0, reserved: 0, inTransit: 0, frozen: 0 };
       agg.onHand += Number(row.onHand || 0);
       agg.reserved += Number(row.reserved || 0);
       agg.inTransit += Number(row.inTransit || 0);
+      agg.frozen += Number(row.frozen || 0);
       stockByCode[row.itemCode] = agg;
     });
     setItems(asList(fetchedItems).map((i) => mapItem(i, stockByCode)));
@@ -202,6 +205,8 @@ export function AppDataProvider({ children }) {
 
   async function consumeItems(storeId, lines) {
     try {
+      // lines may include { itemId, quantity, consumedAt, notes } — the API
+      // accepts consumedAt (ISO date string) and notes as optional fields
       await apiFetch(`/api/stores/${storeId}/consume`, {
         method: "POST",
         body: { lines },
@@ -267,7 +272,6 @@ export function AppDataProvider({ children }) {
           fetchedReturns,
           fetchedStockCounts,
           fetchedBatches,
-          fetchedExpiry,
           fetchedAuditLog,
           fetchedSupplierPerf,
         ] = await Promise.all([
@@ -282,7 +286,7 @@ export function AppDataProvider({ children }) {
           apiFetch("/api/returns").catch(() => []),
           apiFetch("/api/stock-counts").catch(() => []),
           apiFetch("/api/batches").catch(() => []),
-          apiFetch("/api/reports/inventory/expiry").catch(() => []),
+
           // Gated to SYSTEM_ADMINISTRATOR/FINANCE/EXECUTIVE_MANAGEMENT on the
           // backend (see AuditLogController) — other roles get [] via catch,
           // which is correct: they genuinely aren't allowed to see this.
@@ -293,10 +297,11 @@ export function AppDataProvider({ children }) {
         const stockRows = asList(fetchedStock);
         const stockByCode = {};
         stockRows.forEach((row) => {
-          const agg = stockByCode[row.itemCode] || { onHand: 0, reserved: 0, inTransit: 0 };
+          const agg = stockByCode[row.itemCode] || { onHand: 0, reserved: 0, inTransit: 0, frozen: 0 };
           agg.onHand += Number(row.onHand || 0);
           agg.reserved += Number(row.reserved || 0);
           agg.inTransit += Number(row.inTransit || 0);
+          agg.frozen += Number(row.frozen || 0);
           stockByCode[row.itemCode] = agg;
         });
         setItems(asList(fetchedItems).map((i) => mapItem(i, stockByCode)));
@@ -309,7 +314,7 @@ export function AppDataProvider({ children }) {
             id: p.id,
             code: p.code,
             name: p.name,
-            manager: p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned",
+            manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
             budget: p.budgetCeiling != null ? p.budgetCeiling : 100000,
             spent: 0, // Project entity doesn't track spend directly; not fabricated further than that.
             status: p.active ? "Active" : "Completed",
@@ -340,7 +345,6 @@ export function AppDataProvider({ children }) {
         setStockCounts(asList(fetchedStockCounts).map(mapStockCount));
         setReturnsList(asList(fetchedReturns).map(mapReturn));
         setBatches(asList(fetchedBatches));
-        setExpiryItems(asList(fetchedExpiry));
         setAuditLog(asList(fetchedAuditLog));
         setSupplierPerformance(asList(fetchedSupplierPerf));
         lastFetchTime = Date.now();
@@ -429,16 +433,13 @@ export function AppDataProvider({ children }) {
   // --- Material Requests ---
   async function addMaterialRequest(request) {
     try {
-      if (!defaultStoreId) {
-        console.error("Cannot create material request: no store on this user");
-        return;
-      }
       const item = items.find((i) => i.name === request.item) || items[0];
       const proj = request.projectId ? projects.find((p) => p.id === request.projectId) : projects[0];
       if (!item || !proj) {
         console.error("Cannot create material request: no item or project available");
         return;
       }
+
       const payload = {
         requestingStoreId: request.requestingStoreId || defaultStoreId,
         sourceStoreId: request.sourceStoreId || defaultStoreId,
@@ -469,18 +470,19 @@ export function AppDataProvider({ children }) {
     }
   }
 
-  async function rejectRequest(id) {
+  async function rejectRequest(id, reason) {
     try {
       const req = materialRequests.find((r) => r.requestNo === id || r.id === id);
       const uuid = req ? req.id : id;
       await apiFetch(`/api/material-requests/${uuid}/reject`, {
         method: "POST",
-        body: { reason: "Rejected via UI" },
+        body: { reason: reason || "Rejected" },
       });
       const updated = await apiFetch("/api/material-requests");
       setMaterialRequests(asList(updated).map(mapMaterialRequest));
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 
@@ -592,7 +594,7 @@ export function AppDataProvider({ children }) {
           id: p.id,
           code: p.code,
           name: p.name,
-          manager: p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned",
+          manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
           budget: p.budgetCeiling || 100000,
           spent: 0,
           status: p.active ? "Active" : "Completed",
@@ -620,7 +622,7 @@ export function AppDataProvider({ children }) {
           id: p.id,
           code: p.code,
           name: p.name,
-          manager: p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned",
+          manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
           budget: p.budgetCeiling || 100000,
           spent: 0,
           status: p.active ? "Active" : "Completed",
@@ -646,7 +648,7 @@ export function AppDataProvider({ children }) {
           id: p.id,
           code: p.code,
           name: p.name,
-          manager: p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned",
+          manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
           budget: p.budgetCeiling || 100000,
           spent: 0,
           status: p.active ? "Active" : "Completed",
@@ -668,7 +670,7 @@ export function AppDataProvider({ children }) {
           id: p.id,
           code: p.code,
           name: p.name,
-          manager: p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned",
+          manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
           budget: p.budgetCeiling || 100000,
           spent: 0,
           status: p.active ? "Active" : "Completed",
@@ -711,7 +713,7 @@ export function AppDataProvider({ children }) {
         email,
         temporaryPassword: temporaryPassword || "ChangeMe123!",
         roles,
-        assignedStoreId: assignedStoreId || defaultStoreId,
+        assignedStoreId: assignedStoreId || null,
       };
       await apiFetch("/api/users", { method: "POST", body: payload });
       const updated = await apiFetch("/api/users");
@@ -741,11 +743,13 @@ export function AppDataProvider({ children }) {
         console.error("Cannot initiate stock count: no store selected and no store on this user");
         return;
       }
-      await apiFetch("/api/stock-counts", { method: "POST", body: { storeId: targetStoreId } });
+      const newCount = await apiFetch("/api/stock-counts", { method: "POST", body: { storeId: targetStoreId } });
       const updated = await apiFetch("/api/stock-counts");
       setStockCounts(asList(updated).map(mapStockCount));
+      return newCount;
     } catch (e) {
       console.error("Initiate count error", e);
+      throw e;
     }
   }
 
@@ -805,9 +809,8 @@ export function AppDataProvider({ children }) {
       discrepancies: discrepancies.filter((d) => d.status === "OPEN").length,
       returns: returnsList.filter((r) => r.status === "Awaiting Confirmation").length,
       stockCounts: stockCounts.filter((c) => c.status === "Counting").length,
-      expiry: expiryItems.filter((e) => e.tier === 30).length,
     }),
-    [items, expectedReceipts, materialRequests, discrepancies, returnsList, stockCounts, expiryItems]
+    [items, expectedReceipts, materialRequests, discrepancies, returnsList, stockCounts]
   );
 
   const value = {
@@ -846,7 +849,6 @@ export function AppDataProvider({ children }) {
     submitCount,
     postStockCount,
     batches,
-    expiryItems,
     auditLog,
     supplierPerformance,
     user,

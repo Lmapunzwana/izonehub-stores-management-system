@@ -81,6 +81,10 @@ public class AppUser extends BaseEntity {
         if(failedLoginAttempts >= max) locked = true;
     }
 
+    public void setAssignedStore(Store store) {
+        this.assignedStore = store;
+    }
+
     public void recordSuccessfulLogin() {
         failedLoginAttempts = 0;
         locked = false;

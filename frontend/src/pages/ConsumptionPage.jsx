@@ -3,17 +3,20 @@ import Badge from "../components/Badge";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
-import { Package, Flame, Search } from "lucide-react";
+import { Package, Flame, Search, Calendar } from "lucide-react";
 import { apiFetch } from "../api";
 
 export default function ConsumptionPage() {
   const { items, defaultStoreId, consumeItems } = useAppData();
   const { showAlert } = useAppModal();
   const [search, setSearch] = useState("");
-  
+
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
   const [consumeQty, setConsumeQty] = useState("");
+  const [consumeNote, setConsumeNote] = useState("");
+  // Default to today's date in YYYY-MM-DD format
+  const [consumedAt, setConsumedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [siteStock, setSiteStock] = useState({});
   const [loadingStock, setLoadingStock] = useState(false);
 
@@ -34,16 +37,37 @@ export default function ConsumptionPage() {
       .finally(() => setLoadingStock(false));
   }, [defaultStoreId]);
 
+  function openConsumeModal(item) {
+    setConsumeItem(item);
+    setConsumeQty("");
+    setConsumeNote("");
+    setConsumedAt(new Date().toISOString().slice(0, 10));
+    setConsumeModalOpen(true);
+  }
+
   async function handleConsume(e) {
     e.preventDefault();
     if (!consumeItem || !consumeQty) return;
+    const qty = Number(consumeQty);
+    if (isNaN(qty) || qty <= 0) {
+      showAlert({ title: "Invalid Quantity", message: "Please enter a valid positive quantity.", type: "warning" });
+      return;
+    }
+    if (qty > consumeItem.available) {
+      showAlert({ title: "Insufficient Stock", message: `Cannot consume more than ${consumeItem.available} available units.`, type: "danger" });
+      return;
+    }
     try {
-      await consumeItems(defaultStoreId, [{ itemId: consumeItem.id, quantity: Number(consumeQty) }]);
+      await consumeItems(defaultStoreId, [{
+        itemId: consumeItem.id,
+        quantity: qty,
+        consumedAt,
+        notes: consumeNote || null,
+      }]);
       setConsumeModalOpen(false);
       setConsumeItem(null);
-      setConsumeQty("");
-      showAlert({ title: "Success", message: "Item successfully consumed from inventory.", type: "success" });
-      
+      showAlert({ title: "Success", message: `Successfully consumed ${qty} × ${consumeItem.name} on ${consumedAt}.`, type: "success" });
+
       // Refresh site stock after consumption
       apiFetch(`/api/reports/current-stock?storeId=${defaultStoreId}`)
         .then((res) => {
@@ -58,14 +82,14 @@ export default function ConsumptionPage() {
 
     } catch (err) {
       console.error(err);
-      showAlert({ title: "Error", message: "Failed to consume item. " + err.message, type: "danger" });
+      showAlert({ title: "Error", message: "Failed to consume item. " + (err?.message || "Unknown error"), type: "danger" });
     }
   }
 
   const visibleItems = useMemo(() => {
     // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE
     return items
-      .map(i => ({ ...i, available: siteStock[i.code] || 0 }))
+      .map(i => ({ ...i, available: siteStock[i.code] !== undefined ? siteStock[i.code] : (i.available || 0) }))
       .filter((i) => {
         const hasStock = i.available > 0;
         const matchesSearch =
@@ -83,7 +107,7 @@ export default function ConsumptionPage() {
           title="Item Consumption"
           badge={`${visibleItems.length} items available`}
           icon={<Flame size={20} />}
-          subtitle="Log items that have been utilized at this site"
+          subtitle="Log items that have been utilized at this site. Select a date to record past consumption."
         />
 
         <div className="filters" style={{ padding: "16px", borderBottom: "1px solid #f1f5f9" }}>
@@ -98,6 +122,12 @@ export default function ConsumptionPage() {
             />
           </div>
         </div>
+
+        {loadingStock && (
+          <div style={{ padding: "12px 16px", fontSize: 13, color: "#64748b" }}>
+            Loading current stock levels…
+          </div>
+        )}
 
         <table className="table">
           <thead>
@@ -122,20 +152,18 @@ export default function ConsumptionPage() {
                     </div>
                   </div>
                 </td>
-                <td>{item.category}</td>
+                <td>{item.category ? item.category.replace(/_/g, " ") : "—"}</td>
                 <td>
-                  <Badge type="success">{item.available} in stock</Badge>
+                  <Badge type="success">{item.available} {item.original?.unitOfMeasure || ""}</Badge>
                 </td>
                 <td>
                   <button
                     type="button"
                     className="ch-btn ch-btn--primary"
-                    onClick={() => {
-                      setConsumeItem(item);
-                      setConsumeModalOpen(true);
-                    }}
+                    onClick={() => openConsumeModal(item)}
                     title="Log item consumption"
                   >
+                    <Flame size={14} />
                     Consume
                   </button>
                 </td>
@@ -144,9 +172,11 @@ export default function ConsumptionPage() {
             {visibleItems.length === 0 && (
               <tr>
                 <td colSpan={4} style={{ textAlign: "center", color: "#64748b", padding: "32px 16px" }}>
-                  {items.some(i => i.available > 0) 
-                    ? "No items match your search." 
-                    : "You currently have no physical stock available to consume. Receive requested items first."}
+                  {loadingStock
+                    ? "Loading…"
+                    : search
+                      ? "No items match your search."
+                      : "You currently have no physical stock available to consume. Receive requested items first."}
                 </td>
               </tr>
             )}
@@ -154,41 +184,91 @@ export default function ConsumptionPage() {
         </table>
       </div>
 
+      {/* Consume Modal */}
       {consumeModalOpen && consumeItem && (
         <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
-          <div className="app-modal" style={{ maxWidth: 400, padding: 24, textAlign: "left" }}>
-            <h3 style={{ marginTop: 0 }}>Consume {consumeItem.name}</h3>
-            <p style={{ color: "#64748b", fontSize: 14 }}>
-              Available in physical inventory: <strong>{consumeItem.available}</strong>
-            </p>
+          <div className="app-modal" style={{ maxWidth: 440, padding: 28, textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: 8,
+                background: "linear-gradient(135deg,#f59e0b,#ef4444)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Flame size={18} color="#fff" />
+              </span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Consume {consumeItem.name}</h3>
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>{consumeItem.code}</div>
+              </div>
+            </div>
+
+            <div style={{
+              background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6,
+              padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#15803d",
+            }}>
+              Available in physical inventory: <strong>{consumeItem.available} {consumeItem.original?.unitOfMeasure || ""}</strong>
+            </div>
+
             <form onSubmit={handleConsume}>
-              <div className="form-group">
-                <label>Quantity Consumed</label>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500, marginBottom: 6 }}>
+                  <Calendar size={14} />
+                  Consumption Date <span style={{ color: "#dc2626" }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  required
+                  max={new Date().toISOString().slice(0, 10)}
+                  value={consumedAt}
+                  onChange={(e) => setConsumedAt(e.target.value)}
+                />
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                  Date when this material was actually used (can be a past date)
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Quantity Consumed <span style={{ color: "#dc2626" }}>*</span>
+                </label>
                 <input
                   type="number"
                   className="input"
-                  min="1"
+                  min="0.01"
                   max={consumeItem.available}
                   step="any"
                   required
                   value={consumeQty}
                   onChange={(e) => setConsumeQty(e.target.value)}
                   autoFocus
+                  placeholder={`Max: ${consumeItem.available}`}
                 />
               </div>
-              <div className="modal-actions" style={{ marginTop: 24, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Notes / Reason (optional)
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g. Used in foundation pouring — Block C"
+                  value={consumeNote}
+                  onChange={(e) => setConsumeNote(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button
                   type="button"
-                  className="btn btn-outline"
-                  onClick={() => {
-                    setConsumeModalOpen(false);
-                    setConsumeItem(null);
-                    setConsumeQty("");
-                  }}
+                  className="ch-btn ch-btn--outline"
+                  onClick={() => { setConsumeModalOpen(false); setConsumeItem(null); }}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="ch-btn ch-btn--primary">
+                  <Flame size={14} />
                   Confirm Consumption
                 </button>
               </div>

@@ -29,4 +29,11 @@ public class Store extends BaseEntity{
     public void markClosing(){closing=true;}
     public void close(){active=false;closing=false;}
     public void reopen(){active=true;closing=false;}
+
+    public void update(String name, StoreType type, String location, AppUser manager) {
+        this.name = name;
+        this.type = type;
+        this.location = location;
+        this.manager = manager;
+    }
 }

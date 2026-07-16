@@ -11,24 +11,18 @@ import { apiFetch } from "../api";
 const ASSIGNABLE_ROLES = [
   "CENTRAL_STORE_MANAGER",
   "SITE_STORE_MANAGER",
-  "PROCUREMENT_OFFICER",
-  "FINANCE",
-  "EXECUTIVE_MANAGEMENT",
 ];
 
 const ROLE_LABEL = {
   CENTRAL_STORE_MANAGER: "Central Store Manager",
   SITE_STORE_MANAGER: "Site Store Manager",
-  PROCUREMENT_OFFICER: "Procurement Officer",
-  FINANCE: "Finance",
-  EXECUTIVE_MANAGEMENT: "Executive Management",
   SYSTEM_ADMINISTRATOR: "System Administrator",
 };
 
 const EMPTY_FORM = { fullName: "", email: "", temporaryPassword: "", roles: [] };
 
 export default function UsersPage() {
-  const { users, addUser, refreshItems } = useAppData();
+  const { users, stores, addUser, refreshItems } = useAppData();
   const [userList, setUserList] = useState(users);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState(null);
@@ -84,6 +78,30 @@ export default function UsersPage() {
     try {
       await apiFetch(`/api/users/${id}/deactivate`, { method: "POST" });
       setUserList((rows) => rows.map((u) => (u.id === id ? { ...u, active: false } : u)));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onAssignStore(userId, storeId) {
+    if (!storeId) return;
+    setBusyId(userId);
+    try {
+      await apiFetch(`/api/users/${userId}/store/${storeId}`, { method: "PUT" });
+      const updated = await apiFetch("/api/users");
+      setUserList(
+        (Array.isArray(updated) ? updated : updated.content || []).map((u) => ({
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          roles: u.roles || [],
+          store: u.assignedStore?.name || "Unassigned",
+          active: u.active,
+          locked: u.locked,
+        }))
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -178,7 +196,24 @@ export default function UsersPage() {
             {userList.map((u) => (
               <tr key={u.id}>
                 <td>{u.fullName}</td>
-                <td>{u.store}</td>
+                <td>
+                  {u.store === "Unassigned" ? (
+                    <select
+                      className="input"
+                      style={{ padding: "4px 8px", fontSize: "12px", width: "160px" }}
+                      disabled={busyId === u.id}
+                      onChange={(e) => onAssignStore(u.id, e.target.value)}
+                      value=""
+                    >
+                      <option value="" disabled>Assign Store...</option>
+                      {stores.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    u.store
+                  )}
+                </td>
                 <td>
                   {u.roles.length ? (
                     u.roles.map((role) => (

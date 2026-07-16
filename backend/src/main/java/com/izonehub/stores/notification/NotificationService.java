@@ -15,10 +15,22 @@ public class NotificationService {
         this.emailGateway = emailGateway;
     }
 
+    /**
+     * Create an in-app notification and send an email.
+     * Subject defaults to the NotificationType name for backward compatibility.
+     */
     @Transactional
     public Notification notify(AppUser user, NotificationType type, String message) {
+        return notifyWithSubject(user, type, formatSubject(type), message);
+    }
+
+    /**
+     * Create an in-app notification and send an email with an explicit subject line.
+     */
+    @Transactional
+    public Notification notifyWithSubject(AppUser user, NotificationType type, String subject, String message) {
         Notification notification = repository.save(new Notification(user, type, message));
-        emailGateway.send(user, type.name(), message);
+        emailGateway.send(user, subject, message);
         return notification;
     }
 
@@ -32,4 +44,20 @@ public class NotificationService {
         notification.markRead();
         return repository.save(notification);
     }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    /** Maps a NotificationType to a human-readable email subject line. */
+    private String formatSubject(NotificationType type) {
+        return switch (type) {
+            case MATERIAL_REQUEST         -> "Stores System — Material Request Update";
+            case LOW_STOCK                -> "Stores System — Low Stock Alert";
+            case DISCREPANCY_OPENED       -> "Stores System — Discrepancy Detected";
+            case GRN_VARIANCE             -> "Stores System — GRN Variance Recorded";
+            case EXPECTED_RECEIPT_OVERDUE -> "Stores System — Expected Receipt Overdue";
+            case STOCK_RETURN             -> "Stores System — Stock Return Notification";
+            case STOCK_COUNT              -> "Stores System — Stock Count Action Required";
+        };
+    }
 }
+

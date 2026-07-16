@@ -26,4 +26,10 @@ public interface MaterialRequestRepository extends JpaRepository<MaterialRequest
 
     @EntityGraph(attributePaths = {"requestingStore", "sourceStore", "project", "lines", "lines.item"})
     Page<MaterialRequest> findByStatus(MaterialRequestStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"requestingStore", "sourceStore", "project", "lines", "lines.item"})
+    Page<MaterialRequest> findByRequestingStore_IdIn(java.util.List<UUID> requestingStoreIds, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"requestingStore", "sourceStore", "project", "lines", "lines.item"})
+    Page<MaterialRequest> findByStatusAndRequestingStore_IdIn(MaterialRequestStatus status, java.util.List<UUID> requestingStoreIds, Pageable pageable);
 }

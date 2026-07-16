@@ -58,6 +58,12 @@ public class MaterialRequestCommandService {
                         + " — from " + saved.getRequestingStore().getName()
                         + " requesting from " + saved.getSourceStore().getName(),
                 old, saved.getStatus().name(), submittedBy.getEmail());
+        // Notify the SOURCE store manager so they know approval is needed
+        notifySourceStoreManager(saved,
+                "Stores System — New Material Request Awaiting Approval",
+                saved.getRequestingStore().getName() + " has submitted a material request\n"
+                        + "from your store (" + saved.getSourceStore().getName() + ").\n\n"
+                        + "Please log in to review and approve or reject the request.");
         return saved;
     }
 
@@ -97,7 +103,11 @@ public class MaterialRequestCommandService {
         }
         request.approve(approver);
         MaterialRequest saved = requests.save(request);
-        notifyRequester(saved, "Material request approved by " + approver.getEmail());
+        notifyRequesterWithSubject(saved,
+                "Stores System — Material Request Approved",
+                "Your material request from " + saved.getSourceStore().getName() + " has been approved\n"
+                        + "by " + approver.getFullName() + ".\n\n"
+                        + "Items are now ready to be dispatched to " + saved.getRequestingStore().getName() + ".");
         auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "APPROVED",
                 "Approved by " + approver.getEmail()
                         + " (" + saved.getSourceStore().getName() + " → "
@@ -113,7 +123,11 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         request.reject(approver, reason);
         MaterialRequest saved = requests.save(request);
-        notifyRequester(saved, "Material request rejected: " + reason);
+        notifyRequesterWithSubject(saved,
+                "Stores System — Material Request Rejected",
+                "Your material request has been rejected by " + approver.getFullName() + ".\n\n"
+                        + "Reason: " + reason + "\n\n"
+                        + "Please contact the central store manager if you have any questions.");
         auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "REJECTED",
                 "Rejected by " + approver.getEmail() + ". Reason: " + reason,
                 old, saved.getStatus().name(), approver.getEmail());
@@ -147,7 +161,11 @@ public class MaterialRequestCommandService {
         }
         request.markInTransit();
         requests.save(request);
-        notifyRequester(request, "Material dispatched — collected by " + collectorName);
+        notifyRequesterWithSubject(request,
+                "Stores System — Materials Dispatched",
+                "Your materials from " + request.getSourceStore().getName() + " have been dispatched.\n\n"
+                        + "Collected by: " + collectorName + "\n"
+                        + "Please arrange to receive the delivery at " + request.getRequestingStore().getName() + ".");
         Dispatch dispatch = dispatches.save(
                 new Dispatch(request, dispatchedBy, collectorName, collectorEmployeeId));
         auditLog.record("MATERIAL_REQUEST", request.getId().toString(), "DISPATCHED",
@@ -197,10 +215,27 @@ public class MaterialRequestCommandService {
         }
     }
 
+    /** Notify the requesting store manager — used for approval/rejection/dispatch events. */
     private void notifyRequester(MaterialRequest request, String message) {
         if (request.getRequestingStore().getManager() != null) {
             notifications.notify(request.getRequestingStore().getManager(),
                     NotificationType.MATERIAL_REQUEST, message);
+        }
+    }
+
+    /** Notify the requesting store manager with an explicit subject line. */
+    private void notifyRequesterWithSubject(MaterialRequest request, String subject, String body) {
+        if (request.getRequestingStore().getManager() != null) {
+            notifications.notifyWithSubject(request.getRequestingStore().getManager(),
+                    NotificationType.MATERIAL_REQUEST, subject, body);
+        }
+    }
+
+    /** Notify the source store manager — used when a new request is submitted. */
+    private void notifySourceStoreManager(MaterialRequest request, String subject, String body) {
+        if (request.getSourceStore().getManager() != null) {
+            notifications.notifyWithSubject(request.getSourceStore().getManager(),
+                    NotificationType.MATERIAL_REQUEST, subject, body);
         }
     }
 }

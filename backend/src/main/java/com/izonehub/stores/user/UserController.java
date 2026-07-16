@@ -89,6 +89,14 @@ public class UserController {
         return users.save(u);
     }
 
+    @PutMapping("/{id}/store/{storeId}")
+    public AppUser assignStore(@PathVariable UUID id, @PathVariable UUID storeId) {
+        AppUser u = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Store s = stores.findById(storeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        u.setAssignedStore(s);
+        return users.save(u);
+    }
+
     public record CreateUserRequest(
             @NotBlank String fullName,
             @Email @NotBlank String email,

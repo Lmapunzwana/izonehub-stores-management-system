@@ -62,6 +62,8 @@ public class DiscrepancyController {
             mr.getRequestingStore().getName();
         } else if (d.getGrn() != null) {
             d.getGrn().getReferenceNumber();
+        } else if (d.getStockReturn() != null) {
+            d.getStockReturn().getId();
         }
         if (d.getResolvedBy() != null) d.getResolvedBy().getFullName();
     }
@@ -82,9 +84,14 @@ public class DiscrepancyController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         discrepancy.resolve(resolver, req.resolutionNotes());
-        com.izonehub.stores.store.Store store = discrepancy.getReceipt() != null
-                ? discrepancy.getReceipt().getMaterialRequest().getSourceStore()
-                : discrepancy.getGrn().getExpectedReceipt().getStore();
+        com.izonehub.stores.store.Store store;
+        if (discrepancy.getReceipt() != null) {
+            store = discrepancy.getReceipt().getMaterialRequest().getSourceStore();
+        } else if (discrepancy.getGrn() != null) {
+            store = discrepancy.getGrn().getExpectedReceipt().getStore();
+        } else {
+            store = discrepancy.getStockReturn().getStore(); // Central Store confirming the return
+        }
 
         inventory.releaseFrozen(
                 store,

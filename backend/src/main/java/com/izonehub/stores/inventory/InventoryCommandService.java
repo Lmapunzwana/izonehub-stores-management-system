@@ -93,6 +93,13 @@ public class InventoryCommandService {
         return repo.save(inv);
     }
 
+    @Transactional
+    public StoreInventory freezeGrnVariance(Store store, Item item, BigDecimal qty) {
+        StoreInventory inv = findOrCreate(store, item);
+        inv.freezeGrnVariance(qty);
+        return repo.save(inv);
+    }
+
     /** Release frozen stock once a discrepancy investigation is resolved. */
     @Transactional
     public StoreInventory releaseFrozen(Store store, Item item, BigDecimal qty, boolean recovered) {

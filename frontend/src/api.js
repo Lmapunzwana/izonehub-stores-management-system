@@ -80,5 +80,10 @@ export async function apiFetch(url, options = {}) {
   // Return empty object on 204 No Content
   if (response.status === 204) return {};
 
+  const contentType = response.headers.get("content-type");
+  if (contentType && (contentType.includes("application/pdf") || contentType.includes("text/csv") || contentType.includes("application/octet-stream"))) {
+    return response.blob();
+  }
+
   return response.json();
 }

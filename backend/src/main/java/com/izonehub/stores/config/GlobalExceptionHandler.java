@@ -110,6 +110,13 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("[{}] Data integrity violation: {}", request.getRequestURI(), ex.getMessage());
+        return response(HttpStatus.CONFLICT, "A record with these details already exists or violates constraints.", request, null);
+    }
+
     // ── Catch-all (500) ───────────────────────────────────────────────────────
 
     @ExceptionHandler(Exception.class)

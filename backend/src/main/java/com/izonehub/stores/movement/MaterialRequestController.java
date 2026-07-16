@@ -69,10 +69,34 @@ public class MaterialRequestController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<MaterialRequest> list(@RequestParam(defaultValue = "0")  int page,
                                       @RequestParam(defaultValue = "20") int size,
-                                      @RequestParam(required = false)    String status) {
+                                      @RequestParam(required = false)    String status,
+                                      @AuthenticationPrincipal String email) {
         var pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
+        
+        AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER) 
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        
+        java.util.List<UUID> storeIds = null;
+        if (isSiteManager) {
+            java.util.List<Store> managedStores = stores.findByManager_Id(user.getId());
+            if (managedStores.isEmpty()) {
+                return Page.empty();
+            }
+            storeIds = managedStores.stream().map(Store::getId).toList();
+        }
+
         if (status != null) {
-            return requests.findByStatus(MaterialRequestStatus.valueOf(status.toUpperCase()), pageable);
+            MaterialRequestStatus reqStatus = MaterialRequestStatus.valueOf(status.toUpperCase());
+            if (storeIds != null) {
+                return requests.findByStatusAndRequestingStore_IdIn(reqStatus, storeIds, pageable);
+            }
+            return requests.findByStatus(reqStatus, pageable);
+        }
+        
+        if (storeIds != null) {
+            return requests.findByRequestingStore_IdIn(storeIds, pageable);
         }
         return requests.findAll(pageable);
     }

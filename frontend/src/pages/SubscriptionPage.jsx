@@ -40,7 +40,7 @@ export default function SubscriptionPage() {
         body: { allowedStoreSlots: newSlots }
       });
       setSub(data);
-      alert("Subscription updated successfully!");
+      showAlert({ title: "Success", message: "Subscription updated successfully!", type: "success" });
     } catch (err) {
       setError(err.message || "Failed to update subscription slots");
     } finally {

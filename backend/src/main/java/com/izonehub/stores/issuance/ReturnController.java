@@ -56,8 +56,26 @@ public class ReturnController {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<StockReturn> list(@RequestParam(defaultValue = "0") int page,
-                                  @RequestParam(defaultValue = "20") int size) {
+                                  @RequestParam(defaultValue = "20") int size,
+                                  @AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email).orElse(null);
+        java.util.List<UUID> storeIds = null;
+        if (user != null) {
+            boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+            if (isSiteManager) {
+                java.util.List<Store> managedStores = storeRepo.findByManager_Id(user.getId());
+                if (managedStores.isEmpty()) {
+                    return new PageImpl<>(List.of(), PageRequest.of(page, size), 0);
+                }
+                storeIds = managedStores.stream().map(Store::getId).toList();
+            }
+        }
+        final java.util.List<UUID> finalStoreIds = storeIds;
+
         List<StockReturn> all = returns.findAll().stream()
+                .filter(r -> finalStoreIds == null || finalStoreIds.contains(r.getStore().getId()))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
         
@@ -79,11 +97,35 @@ public class ReturnController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         MaterialIssueVoucher miv = mivs.findById(req.mivId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "MIV not found"));
+                
+        boolean isSiteManager = returnedBy.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (isSiteManager) {
+            java.util.List<Store> managedStores = storeRepo.findByManager_Id(returnedBy.getId());
+            if (managedStores.stream().noneMatch(s -> s.getId().equals(miv.getProject().getSiteStore().getId()))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this store");
+            }
+        }
 
         StockReturn sr = new StockReturn(miv, miv.getStore(), returnedBy);
         for (ReturnLineRequest l : req.lines()) {
             Item item = items.findById(l.itemId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found"));
+            
+            // Validate return quantity does not exceed what was issued minus already returned
+            miv.getLines().stream()
+                .filter(ml -> ml.getItem().getId().equals(item.getId()))
+                .findFirst()
+                .ifPresentOrElse(ml -> {
+                    BigDecimal maxReturnable = ml.getIssuedQuantity().subtract(ml.getReturnedQuantity());
+                    if (l.quantity().compareTo(maxReturnable) > 0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot return more than issued unused quantity for item " + item.getCode());
+                    }
+                }, () -> {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item " + item.getCode() + " was not issued in this MIV");
+                });
+
             sr.addLine(new StockReturnLine(item, l.quantity(), l.condition()));
         }
 
@@ -97,7 +139,7 @@ public class ReturnController {
     @ResponseStatus(HttpStatus.OK)
     @Transactional
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
-    public StockReturn confirmReturn(@PathVariable UUID id, @AuthenticationPrincipal String email) {
+    public StockReturn confirmReturn(@PathVariable UUID id, @Valid @RequestBody ConfirmReturnRequest req, @AuthenticationPrincipal String email) {
         AppUser confirmedBy = users.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         StockReturn sr = returns.findById(id)
@@ -107,7 +149,7 @@ public class ReturnController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Already confirmed");
         }
 
-        StockReturn confirmed = svc.confirm(sr);
+        StockReturn confirmed = svc.confirm(sr, req);
         String mivRef = confirmed.getMiv() != null ? " against MIV '" + confirmed.getMiv().getReferenceNumber() + "'" : "";
         auditLog.record("RETURN", confirmed.getId().toString(), "CONFIRMED",
                 "Confirmed return" + mivRef, email);
@@ -141,4 +183,6 @@ public class ReturnController {
 
     public record ReturnLineRequest(@NotNull UUID itemId, @NotNull BigDecimal quantity, @NotNull ReturnCondition condition) {}
     public record CreateReturnRequest(@NotNull UUID mivId, @NotNull java.util.List<ReturnLineRequest> lines) {}
+    public record ConfirmLineRequest(@NotNull UUID itemId, @NotNull BigDecimal receivedQuantity) {}
+    public record ConfirmReturnRequest(@NotNull java.util.List<ConfirmLineRequest> lines) {}
 }

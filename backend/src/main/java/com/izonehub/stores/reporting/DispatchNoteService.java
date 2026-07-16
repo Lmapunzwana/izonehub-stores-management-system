@@ -139,15 +139,32 @@ public class DispatchNoteService {
             doc.add(table);
             doc.add(spacer(30));
 
-            // ── Signatures ───────────────────────────────────────────────
-            PdfPTable sig = new PdfPTable(3);
-            sig.setWidthPercentage(100);
-            sig.setWidths(new float[]{1f, 1f, 1f});
-            sig.addCell(signatureCell("ISSUED BY", request.getRaisedBy().getFullName(), sigLabelFont, sigValueFont));
-            sig.addCell(signatureCell("DISPATCHED BY", dispatch.getDispatchedBy().getFullName(), sigLabelFont, sigValueFont));
-            sig.addCell(signatureCell("COLLECTED BY", dispatch.getCollectorName() + "  (ID: " + dispatch.getCollectorEmployeeId() + ")",
+            // ── Signatures (Row 1): Requested By | Issued By | Dispatched By ──────
+            PdfPTable sig1 = new PdfPTable(3);
+            sig1.setWidthPercentage(100);
+            sig1.setWidths(new float[]{1f, 1f, 1f});
+            sig1.addCell(signatureCell("REQUESTED BY",
+                    request.getRaisedBy() != null ? request.getRaisedBy().getFullName() : "—",
                     sigLabelFont, sigValueFont));
-            doc.add(sig);
+            sig1.addCell(signatureCell("ISSUED BY",
+                    request.getRaisedBy() != null ? request.getRaisedBy().getFullName() : "—",
+                    sigLabelFont, sigValueFont));
+            sig1.addCell(signatureCell("DISPATCHED BY",
+                    dispatch.getDispatchedBy() != null ? dispatch.getDispatchedBy().getFullName() : "—",
+                    sigLabelFont, sigValueFont));
+            doc.add(sig1);
+            doc.add(spacer(16));
+
+            // ── Signatures (Row 2): Collected By | Received By (blank) ───────────
+            PdfPTable sig2 = new PdfPTable(2);
+            sig2.setWidthPercentage(100);
+            sig2.setWidths(new float[]{1f, 1f});
+            sig2.addCell(signatureCell("COLLECTED BY",
+                    dispatch.getCollectorName() + "  (ID: " + dispatch.getCollectorEmployeeId() + ")",
+                    sigLabelFont, sigValueFont));
+            sig2.addCell(signatureCellBlank("RECEIVED BY\n(Full Name & Signature)", sigLabelFont));
+            doc.add(sig2);
+
 
             // ── Footer strip ─────────────────────────────────────────────
             doc.add(spacer(28));
@@ -287,4 +304,29 @@ public class DispatchNoteService {
         cell.addElement(new Paragraph(value, valueFont));
         return cell;
     }
+
+    /**
+     * A blank signature cell — shows the label, then a horizontal line for
+     * the recipient to write their full name and sign by hand.
+     */
+    private PdfPCell signatureCellBlank(String label, Font labelFont) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBorder(Rectangle.NO_BORDER);
+        cell.setPaddingRight(14);
+        Paragraph l = new Paragraph(label, labelFont);
+        l.setSpacingAfter(6);
+        cell.addElement(l);
+        // Draw a solid underline for the handwritten signature area
+        PdfPTable underline = new PdfPTable(1);
+        underline.setWidthPercentage(90);
+        PdfPCell line = new PdfPCell();
+        line.setFixedHeight(1f);
+        line.setBackgroundColor(new Color(180, 180, 180));
+        line.setBorder(Rectangle.NO_BORDER);
+        underline.addCell(line);
+        cell.addElement(underline);
+        cell.addElement(new Paragraph(" ", labelFont)); // spacer
+        return cell;
+    }
 }
+

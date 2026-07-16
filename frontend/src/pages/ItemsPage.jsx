@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Badge from "../components/Badge";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
-import { useAppModal } from "../context/ModalContext";
 import {
   Plus,
   Download,
@@ -11,12 +10,13 @@ import {
   Filter,
   Package,
   ShoppingCart,
+  Snowflake,
 } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function ItemsPage() {
   const navigate = useNavigate();
-  const { items, user, defaultStoreId, consumeItems } = useAppData();
-  const { showAlert } = useAppModal();
+  const { items, user } = useAppData();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
@@ -25,15 +25,32 @@ export default function ItemsPage() {
     category: "All Categories",
     statusFilter: "All Statuses",
   });
+  const [categories, setCategories] = useState([]);
+
+  // Load real categories from API
+  useEffect(() => {
+    apiFetch("/api/items/categories")
+      .then((res) => {
+        const cats = Array.isArray(res) ? res : [];
+        setCategories(cats.map(c => typeof c === "string" ? c : c.name || String(c)));
+      })
+      .catch(() => {
+        // Derive categories from items as fallback
+        const unique = [...new Set(items.map(i => i.category).filter(Boolean))];
+        setCategories(unique);
+      });
+  }, [items]);
 
   function onAdd() {
     navigate("/items/add-item");
   }
 
   function onExport() {
-    const header = "Name,Code,Available,Reserved,Incoming,Status\n";
+    const header = "Name,Code,Category,Available,Reserved,Incoming,Frozen,Status\n";
     const rows = items
-      .map((i) => `${i.name},${i.code},${i.available},${i.reserved},${i.incoming},${i.status.label}`)
+      .map((i) =>
+        `"${i.name}","${i.code}","${i.category || ""}",${i.available},${i.reserved},${i.incoming},${i.frozen || 0},"${i.status.label}"`
+      )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -47,8 +64,6 @@ export default function ItemsPage() {
   function onFilter() {
     setAppliedFilters({ search, category, statusFilter });
   }
-
-
 
   const visibleItems = useMemo(() => {
     return items.filter((i) => {
@@ -88,8 +103,9 @@ export default function ItemsPage() {
           <div className="select-wrap">
             <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
               <option>All Categories</option>
-              <option>Electrical</option>
-              <option>Safety</option>
+              {categories.map(c => (
+                <option key={c}>{c}</option>
+              ))}
             </select>
             <ChevronsUpDown size={16} className="select-icon" />
           </div>
@@ -118,6 +134,11 @@ export default function ItemsPage() {
               <th>Available</th>
               <th>Reserved</th>
               <th>Incoming</th>
+              <th>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Snowflake size={14} style={{ color: "#7c3aed" }} /> Frozen
+                </span>
+              </th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -132,13 +153,23 @@ export default function ItemsPage() {
                     </span>
                     <div>
                       <div className="item-name">{item.name}</div>
-                      <div className="item-code">{item.code}</div>
+                      <div className="item-code">{item.code}{item.category ? ` · ${item.category}` : ""}</div>
                     </div>
                   </div>
                 </td>
-                <td>{item.available}</td>
-                <td>{item.reserved}</td>
-                <td>{item.incoming}</td>
+                <td style={{ fontWeight: 600 }}>{Number(item.available).toLocaleString()}</td>
+                <td style={{ color: item.reserved > 0 ? "#f59e0b" : undefined }}>{Number(item.reserved).toLocaleString()}</td>
+                <td style={{ color: "#2563eb" }}>{Number(item.incoming).toLocaleString()}</td>
+                <td style={{ color: item.frozen > 0 ? "#7c3aed" : "#64748b" }}>
+                  {item.frozen > 0 ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <Snowflake size={13} />
+                      {Number(item.frozen).toLocaleString()}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#94a3b8" }}>—</span>
+                  )}
+                </td>
                 <td>
                   <Badge type={item.status.type}>{item.status.label}</Badge>
                 </td>
@@ -147,7 +178,9 @@ export default function ItemsPage() {
                     <button
                       type="button"
                       className="ch-btn ch-btn--outline"
-                      onClick={() => navigate("/expected-receipts")}
+                      onClick={() =>
+                        navigate("/expected-receipts", { state: { lockedItemId: item.id, lockedItemName: item.name } })
+                      }
                       title="Below reorder threshold — create an Expected Receipt to restock"
                     >
                       <ShoppingCart size={16} />
@@ -161,7 +194,7 @@ export default function ItemsPage() {
             ))}
             {visibleItems.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "#64748b" }}>
+                <td colSpan={7} style={{ textAlign: "center", color: "#64748b" }}>
                   No items match your filters.
                 </td>
               </tr>
@@ -169,7 +202,6 @@ export default function ItemsPage() {
           </tbody>
         </table>
       </div>
-
     </div>
   );
 }

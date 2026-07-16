@@ -4,25 +4,50 @@ import { useAppData } from '../context/AppDataContext'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api'
 
-// Define which roles can see which links. If not specified, everyone sees it.
-const links = [
-  { label: 'Dashboard', path: '/', badge: null },
-  { label: 'Items', path: '/items', badge: 'items' },
-  { label: 'Consumption', path: '/consumption', badge: null, roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER', 'SITE_STORE_MANAGER'] },
-  { label: 'Expected Receipts', path: '/expected-receipts', badge: 'expectedReceipts' },
-  { label: 'Material Requests', path: '/material-requests', badge: 'materialRequests' },
-  { label: 'Issues & Dispatch', path: '/dispatch', badge: 'dispatch', roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },
-  { label: 'Projects', path: '/projects', badge: null },
-  { label: 'Stores', path: '/stores', badge: null, roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },
-  { label: 'Subscription', path: '/subscription', badge: null, roles: ['SYSTEM_ADMINISTRATOR'] },
-  { label: 'Employees', path: '/employees', badge: null },
-  { label: 'Users', path: '/users', badge: null, roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },
-  { label: 'Returns', path: '/returns', badge: 'returns' },
-  { label: 'Discrepancies', path: '/discrepancies', badge: 'discrepancies', roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },
-  { label: 'Stock Counts', path: '/stock-counts', badge: 'stockCounts', roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER', 'SITE_STORE_MANAGER'] },
-  { label: 'Expiry Monitoring', path: '/expiry-monitoring', badge: 'expiry' },
-  { label: 'Audit Log', path: '/audit-log', badge: null, roles: ['SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER'] },
-  { label: 'Reports', path: '/reports', badge: null },
+// Nav link groups, shown with visual section separators.
+// roles: which roles may see the link (omit for all roles).
+const NAV_GROUPS = [
+  {
+    section: "Overview",
+    links: [
+      { label: "Dashboard",         path: "/",                badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+    ],
+  },
+  {
+    section: "Warehouse",
+    links: [
+      { label: "Items",             path: "/items",           badge: "items",           roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Expected Receipts", path: "/expected-receipts", badge: "expectedReceipts", roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Issues & Dispatch", path: "/dispatch",        badge: "dispatch",        roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+      { label: "Returns",           path: "/returns",         badge: "returns",         roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+      { label: "Discrepancies",     path: "/discrepancies",   badge: "discrepancies",   roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+    ],
+  },
+  {
+    section: "Operations",
+    links: [
+      { label: "Material Requests", path: "/material-requests", badge: "materialRequests" },
+      { label: "Consumption",       path: "/consumption",     badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+      { label: "Stock Counts",      path: "/stock-counts",    badge: "stockCounts",     roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+    ],
+  },
+  {
+    section: "Projects",
+    links: [
+      { label: "Projects",          path: "/projects",        badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+    ],
+  },
+  {
+    section: "Administration",
+    links: [
+      { label: "Stores",            path: "/stores",          badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Users",             path: "/users",           badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Employees",         path: "/employees",       badge: null },
+      { label: "Subscription",      path: "/subscription",    badge: null,              roles: ["SYSTEM_ADMINISTRATOR"] },
+      { label: "Audit Log",         path: "/audit-log",       badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Reports",           path: "/reports",         badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+    ],
+  },
 ]
 
 export default function Layout({ children }) {
@@ -38,15 +63,21 @@ export default function Layout({ children }) {
     navigate('/login')
   }
 
-  // Filter links based on user roles
   const userRoles = user?.roles || [];
-  const visibleLinks = links.filter(link => {
-    if (!link.roles) return true; // Everyone can see
+
+  function isLinkVisible(link) {
+    if (!link.roles) return true;
     return link.roles.some(r => userRoles.includes(r));
-  });
+  }
 
   const defaultStore = stores?.find(s => s.id === defaultStoreId);
-  const operatingAs = defaultStore ? `Operating as: ${defaultStore.type === 'CENTRAL' ? 'Central Warehouse' : 'Site Store'} (${defaultStore.name})` : "Stores Management";
+  
+  let operatingAs = "Stores Management";
+  if (user?.assignedStore) {
+    operatingAs = `Operating as: ${user.assignedStore.type === 'CENTRAL' ? 'Central Warehouse' : 'Site Store'} (${user.assignedStore.name})`;
+  } else if (defaultStore) {
+    operatingAs = `Operating as: ${defaultStore.type === 'CENTRAL' ? 'Central Warehouse' : 'Site Store'} (${defaultStore.name})`;
+  }
 
   return (
     <div className="app-shell">
@@ -54,18 +85,29 @@ export default function Layout({ children }) {
         <div className="logo" style={{ padding: '16px', textAlign: 'center' }}>
           <img src="/logo.jpeg" alt="Stores Management Logo" style={{ maxWidth: '100%', height: 'auto', maxHeight: '60px', objectFit: 'contain' }} />
         </div>
-        {visibleLinks.map(({ label, path, badge }) => {
-          const count = badge ? badges[badge] : 0
+        {NAV_GROUPS.map(({ section, links }) => {
+          const visible = links.filter(isLinkVisible);
+          if (visible.length === 0) return null;
           return (
-            <Link
-              key={path}
-              to={path}
-              className={location.pathname === path ? 'nav-link active' : 'nav-link'}
-            >
-              <span>{label}</span>
-              {count > 0 && <span className="nav-badge">{count}</span>}
-            </Link>
-          )
+            <div key={section}>
+              <div style={{ padding: '8px 16px 4px 16px', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#94a3b8', textTransform: 'uppercase' }}>
+                {section}
+              </div>
+              {visible.map(({ label, path, badge }) => {
+                const count = badge ? badges[badge] : 0;
+                return (
+                  <Link
+                    key={path}
+                    to={path}
+                    className={location.pathname === path || (path !== '/' && location.pathname.startsWith(path)) ? 'nav-link active' : 'nav-link'}
+                  >
+                    <span>{label}</span>
+                    {count > 0 && <span className="nav-badge">{count}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          );
         })}
       </aside>
 

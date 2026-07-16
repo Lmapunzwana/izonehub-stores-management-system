@@ -17,7 +17,6 @@ import ReturnsPage from "./pages/ReturnsPage";
 import DiscrepanciesPage from "./pages/DiscrepanciesPage";
 import StockCountsPage from "./pages/StockCountsPage";
 import BatchSerialTrackingPage from "./pages/BatchSerialTrackingPage";
-import ExpiryMonitoringPage from "./pages/ExpiryMonitoringPage";
 import AuditLogPage from "./pages/AuditLogPage";
 import ReportsPage from "./pages/ReportsPage";
 import ConfirmGRNPage from "./pages/ConfirmGRNPage";
@@ -41,15 +40,35 @@ export default function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/items" element={<ItemsPage />} />
+              <Route path="/items" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <ItemsPage />
+                </RequireRole>
+              } />
               <Route path="/consumption" element={<ConsumptionPage />} />
               <Route path="/items/add-item" element={<AddItemPage />} />
-              <Route path="/expected-receipts" element={<ExpectedReceiptsPage />} />
+              <Route path="/expected-receipts" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <ExpectedReceiptsPage />
+                </RequireRole>
+              } />
               <Route path="/material-requests" element={<MaterialRequestsPage />} />
               <Route path="/material-requests/add-item" element={<AddItemToRequestPage />} />
-              <Route path="/dispatch" element={<DispatchPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="/dispatch" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <DispatchPage />
+                </RequireRole>
+              } />
+              <Route path="/projects" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <ProjectsPage />
+                </RequireRole>
+              } />
+              <Route path="/projects/:id" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <ProjectDetailsPage />
+                </RequireRole>
+              } />
               <Route path="/employees" element={<EmployeesPage />} />
               <Route path="/users" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
@@ -69,13 +88,16 @@ export default function App() {
               <Route path="/returns" element={<ReturnsPage />} />
               <Route path="/discrepancies" element={<DiscrepanciesPage />} />
               <Route path="/stock-counts" element={<StockCountsPage />} />
-              <Route path="/expiry-monitoring" element={<ExpiryMonitoringPage />} />
               <Route path="/audit-log" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
                   <AuditLogPage />
                 </RequireRole>
               } />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <ReportsPage />
+                </RequireRole>
+              } />
               <Route path="/confirm-grn" element={<ConfirmGRNPage />} />
               <Route path="/401" element={<UnauthorizedPage />} />
               <Route path="/403" element={<ForbiddenPage />} />

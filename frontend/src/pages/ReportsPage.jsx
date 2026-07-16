@@ -1,10 +1,12 @@
 import { useState } from "react";
 import CardHeader from "../components/CardHeader";
 import { BarChart } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState("Inventory Summary");
-  const [dateRange, setDateRange] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [status, setStatus] = useState(null);
 
   function download(content, filename, type) {
@@ -17,36 +19,49 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function getQueryString() {
+    const params = new URLSearchParams();
+    if (startDate) params.append("from", startDate);
+    if (endDate) params.append("to", endDate);
+    return params.toString();
+  }
+
+  function getEndpoint() {
+    if (reportType === "Inventory Summary") return "/api/reports/current-stock";
+    if (reportType === "Project Consumption") return "/api/reports/project-consumption";
+    if (reportType === "GRN Report") return "/api/reports/grns";
+    if (reportType === "Discrepancy Report") return "/api/reports/discrepancies";
+    return "/api/reports/current-stock";
+  }
+
   function onGenerateReport() {
-    setStatus(`Generated "${reportType}" report${dateRange ? ` for ${dateRange}` : ""}.`);
+    setStatus(`Generated "${reportType}" report${startDate || endDate ? ` for the selected dates` : ""}.`);
   }
 
-  function onExportPDF() {
-    if (reportType === "Inventory Summary") {
-      window.open('/api/reports/current-stock?format=pdf', '_blank');
-      setStatus("Downloaded Inventory Summary PDF");
-      return;
+  async function onExportPDF() {
+    try {
+      const qs = getQueryString();
+      const url = `${getEndpoint()}?format=pdf${qs ? "&" + qs : ""}`;
+      const blob = await apiFetch(url);
+      download(blob, `${reportType.toLowerCase().replace(" ", "-")}.pdf`, "application/pdf");
+      setStatus(`Downloaded ${reportType} PDF`);
+    } catch (e) {
+      console.error(e);
+      setStatus(`Failed to download ${reportType} PDF`);
     }
-    onGenerateReport();
-    download(
-      `Report: ${reportType}\nDate Range: ${dateRange || "All time"}\n`,
-      `${reportType.replace(/\s+/g, "-").toLowerCase()}.pdf`,
-      "application/pdf"
-    );
   }
 
-  function onExportCSV() {
-    if (reportType === "Inventory Summary") {
-      window.open('/api/reports/current-stock?format=csv', '_blank');
-      setStatus("Downloaded Inventory Summary CSV");
-      return;
+  async function onExportCSV() {
+    try {
+      const qs = getQueryString();
+      const url = `${getEndpoint()}?format=csv${qs ? "&" + qs : ""}`;
+      const blob = await apiFetch(url);
+      download(blob, `${reportType.toLowerCase().replace(" ", "-")}.csv`, "text/csv");
+      setStatus(`Downloaded ${reportType} CSV`);
+    } catch (e) {
+      console.error(e);
+      setStatus(`Failed to download ${reportType} CSV`);
     }
-    onGenerateReport();
-    download(
-      `Report,${reportType}\nDate Range,${dateRange || "All time"}\n`,
-      `${reportType.replace(/\s+/g, "-").toLowerCase()}.csv`,
-      "text/csv"
-    );
   }
 
   return (
@@ -75,12 +90,22 @@ export default function ReportsPage() {
           </div>
 
           <div>
-            <label>Date Range</label>
+            <label>Start Date</label>
             <input
               className="input"
               type="date"
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          
+          <div>
+            <label>End Date</label>
+            <input
+              className="input"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
 

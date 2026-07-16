@@ -1137,7 +1137,7 @@ select.input {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.98);
+  background-color: #ffffff;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1192,4 +1192,122 @@ select.input {
 
 .app-modal-actions button {
   min-width: 100px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Dashboard                                                          */
+/* ---------------------------------------------------------------- */
+.dash-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dash-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.dash-stat-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px;
+  transition: box-shadow 0.15s ease;
+}
+
+.dash-stat-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.dash-stat-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dash-stat-value {
+  font-size: 2em;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.dash-stat-sub {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.dash-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.dash-card.darker {
+  background: #f8fafc;
+}
+
+.dash-alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dash-alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.dash-alert-item:hover {
+  background: #f1f5f9;
+}
+
+/* ---------------------------------------------------------------- */
+/* Variance indicators                                                */
+/* ---------------------------------------------------------------- */
+.variance-ok {
+  color: #16a34a;
+  font-weight: 700;
+}
+.variance-bad {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- */
+/* nav-link sizing for grouped sidebar                               */
+/* ---------------------------------------------------------------- */
+.nav-link {
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+/* ---------------------------------------------------------------- */
+/* btn-outline (used in legacy modals)                               */
+/* ---------------------------------------------------------------- */
+.btn-outline {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+@media (max-width: 1200px) {
+  .dash-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .dash-stats-grid {
+    grid-template-columns: 1fr;
+  }
 }

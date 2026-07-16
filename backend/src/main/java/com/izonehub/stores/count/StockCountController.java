@@ -14,6 +14,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,8 +54,26 @@ public class StockCountController {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<StockCount> list(@RequestParam(defaultValue = "0")  int page,
-                                 @RequestParam(defaultValue = "20") int size) {
+                                 @RequestParam(defaultValue = "20") int size,
+                                 @AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email).orElse(null);
+        java.util.List<java.util.UUID> storeIds = null;
+        if (user != null) {
+            boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+            if (isSiteManager) {
+                java.util.List<Store> managedStores = stores.findByManager_Id(user.getId());
+                if (managedStores.isEmpty()) {
+                    return new PageImpl<>(java.util.List.of(), PageRequest.of(page, size), 0);
+                }
+                storeIds = managedStores.stream().map(Store::getId).toList();
+            }
+        }
+        final java.util.List<java.util.UUID> finalStoreIds = storeIds;
+
         var all = counts.findAll().stream()
+                .filter(c -> finalStoreIds == null || finalStoreIds.contains(c.getStore().getId()))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
         all.forEach(this::resolveLazy);
@@ -79,6 +100,17 @@ public class StockCountController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         Store store = stores.findById(req.storeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store not found"));
+                
+        boolean isSiteManager = initiatedBy.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                && !initiatedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !initiatedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (isSiteManager) {
+            java.util.List<Store> managedStores = stores.findByManager_Id(initiatedBy.getId());
+            if (managedStores.stream().noneMatch(s -> s.getId().equals(store.getId()))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this store");
+            }
+        }
+
         StockCount count = svc.initiate(store, initiatedBy);
         auditLog.record("STOCK_COUNT", count.getId().toString(), "INITIATED",
                 "Initiated by " + initiatedBy.getEmail() + " for store '" + store.getName() + "'",
@@ -174,12 +206,24 @@ public class StockCountController {
     @GetMapping("/{id}/audit-report")
     @Transactional
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
-    public org.springframework.http.ResponseEntity<byte[]> downloadAuditReport(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> downloadAuditReport(@PathVariable UUID id) {
         StockCount count = counts.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         byte[] pdf = pdfService.generate(count);
-        return org.springframework.http.ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"stock-count-audit-" + count.getId() + ".pdf\"")
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"stock-count-audit-" + count.getId() + ".pdf\"")
+                .body(pdf);
+    }
+
+    @GetMapping("/{id}/full-audit-pdf")
+    @Transactional
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
+    public ResponseEntity<byte[]> downloadFullAuditReport(@PathVariable UUID id) {
+        StockCount count = counts.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        byte[] pdf = pdfService.generateFullAudit(count);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"stock-count-full-audit-" + id + ".pdf\"")
                 .body(pdf);
     }
 

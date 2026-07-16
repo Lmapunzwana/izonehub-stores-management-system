@@ -10,6 +10,7 @@ import com.izonehub.stores.user.Role;
 import com.izonehub.stores.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 
 @Service
 public class GrnCommandService {
@@ -51,6 +52,8 @@ public class GrnCommandService {
         
         expectedReceipt.getLines().forEach(line -> {
             if (line.hasVariance()) {
+                BigDecimal variance = line.getExpectedQuantity().subtract(line.getReceivedQuantity()).abs();
+                inventory.freezeGrnVariance(expectedReceipt.getStore(), line.getItem(), variance);
                 discrepancies.save(new Discrepancy(grn, line.getItem(), line.getExpectedQuantity(), line.getReceivedQuantity()));
             }
         });

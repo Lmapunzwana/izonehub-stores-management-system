@@ -27,10 +27,10 @@ spec:
             - name: COOKIE_SECURE
               value: "true"
             - name: COOKIE_DOMAIN
-              value: stores.newsaharaventures.com
+              value: stores.nvs.co.zw
             # Only the frontend origin is allowed for CORS
             - name: CORS_ALLOWED_ORIGINS
-              value: https://stores.newsaharaventures.com
+              value: https://stores.nvs.co.zw
           readinessProbe:
             httpGet:
               path: /actuator/health

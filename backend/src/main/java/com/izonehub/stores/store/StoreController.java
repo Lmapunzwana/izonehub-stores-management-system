@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.izonehub.stores.user.AppUser;
@@ -58,8 +59,28 @@ public class StoreController {
     @GetMapping
     public Page<Store> list(@RequestParam(defaultValue = "0") int page,
                             @RequestParam(defaultValue = "50") int size,
-                            @RequestParam(defaultValue = "true") boolean active) {
-        return repo.findByActive(active, PageRequest.of(page, size));
+                            @RequestParam(defaultValue = "true") boolean active,
+                            @RequestParam(defaultValue = "true") boolean managedOnly,
+                            @org.springframework.security.core.annotation.AuthenticationPrincipal String email) {
+        if (email != null && managedOnly) {
+            AppUser user = users.findByEmail(email).orElse(null);
+            if (user != null) {
+                boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+                if (isSiteManager) {
+                    java.util.List<Store> managedStores = repo.findByManager_Id(user.getId());
+                    java.util.List<Store> filtered = managedStores.stream()
+                        .filter(s -> s.isActive() == active)
+                        .toList();
+                    int total = filtered.size();
+                    int from = Math.min(page * size, total);
+                    int to = Math.min(from + size, total);
+                    return new org.springframework.data.domain.PageImpl<>(filtered.subList(from, to), org.springframework.data.domain.PageRequest.of(page, size), total);
+                }
+            }
+        }
+        return repo.findByActive(active, org.springframework.data.domain.PageRequest.of(page, size));
     }
 
     @GetMapping("/{id}")
@@ -89,7 +110,17 @@ public class StoreController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Company subscription limit reached (" + allowedSlots + " active stores).");
         }
 
-        return repo.save(new Store(req.name(), type, req.location(), manager));
+        Store savedStore = repo.save(new Store(req.name(), type, req.location(), manager));
+
+        if (req.assignedUsers() != null && !req.assignedUsers().isEmpty()) {
+            java.util.List<AppUser> assignees = users.findAllById(req.assignedUsers());
+            for (AppUser u : assignees) {
+                u.setAssignedStore(savedStore);
+            }
+            users.saveAll(assignees);
+        }
+
+        return savedStore;
     }
 
     @PutMapping("/{id}")
@@ -111,7 +142,26 @@ public class StoreController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There can be only ONE central store.");
         }
 
-        return repo.save(new Store(req.name(), type, req.location(), manager));
+        s.update(req.name(), type, req.location(), manager);
+        Store savedStore = repo.save(s);
+
+        if (req.assignedUsers() != null) {
+            java.util.List<AppUser> currentAssignees = users.findByAssignedStore(s);
+            for (AppUser u : currentAssignees) {
+                u.setAssignedStore(null);
+            }
+            users.saveAll(currentAssignees);
+
+            if (!req.assignedUsers().isEmpty()) {
+                java.util.List<AppUser> newAssignees = users.findAllById(req.assignedUsers());
+                for (AppUser u : newAssignees) {
+                    u.setAssignedStore(savedStore);
+                }
+                users.saveAll(newAssignees);
+            }
+        }
+
+        return savedStore;
     }
 
     @PostMapping("/{id}/close")
@@ -176,16 +226,33 @@ public class StoreController {
             Item item = items.findById(l.itemId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId()));
             inventoryService.consume(store, item, l.quantity());
+            // Build a human-readable audit message that includes the consumption date if provided
+            String consumedOnText = (l.consumedAt() != null) ? " on " + l.consumedAt() : "";
+            String notesText = (l.notes() != null && !l.notes().isBlank()) ? " — " + l.notes() : "";
             auditLog.record("INVENTORY", store.getId().toString(), "CONSUMED",
-                    "Consumed " + l.quantity() + " of " + item.getName() + " at store " + store.getName(), email);
+                    "Consumed " + l.quantity() + " of " + item.getName()
+                            + " at store " + store.getName() + consumedOnText + notesText,
+                    email);
         }
     }
 
     public record StoreRequest(@NotBlank String name,
                                @NotBlank String type,
                                @NotBlank String location,
-                               @NotNull UUID managerId) {}
+                               @NotNull UUID managerId,
+                               java.util.List<UUID> assignedUsers) {}
 
-    public record ConsumeLineRequest(@NotNull UUID itemId, @NotNull java.math.BigDecimal quantity) {}
+    /**
+     * consumedAt — optional LocalDate the material was actually used on site
+     *              (defaults to today if omitted). This is recorded in the audit log
+     *              to support backdated consumption entries.
+     * notes      — optional free-text reason/reference.
+     */
+    public record ConsumeLineRequest(
+            @NotNull UUID itemId,
+            @NotNull java.math.BigDecimal quantity,
+            LocalDate consumedAt,
+            String notes) {}
+
     public record ConsumeRequest(@NotNull java.util.List<ConsumeLineRequest> lines) {}
 }

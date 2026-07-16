@@ -4,6 +4,7 @@ import com.izonehub.stores.common.BaseEntity;
 import com.izonehub.stores.item.Item;
 import com.izonehub.stores.user.AppUser;
 import com.izonehub.stores.receipt.GoodsReceivedNote;
+import com.izonehub.stores.issuance.StockReturn;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,6 +16,9 @@ public class Discrepancy extends BaseEntity {
 
     @ManyToOne(optional = true, fetch = FetchType.LAZY)
     private GoodsReceivedNote grn;
+
+    @ManyToOne(optional = true, fetch = FetchType.LAZY)
+    private StockReturn stockReturn;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Item item;
@@ -61,8 +65,18 @@ public class Discrepancy extends BaseEntity {
         this.frozenQuantity = expectedQuantity.subtract(receivedQuantity).abs();
     }
 
+    public Discrepancy(StockReturn stockReturn, Item item, BigDecimal expectedQuantity, BigDecimal receivedQuantity) {
+        if (stockReturn == null) throw new IllegalArgumentException("StockReturn cannot be null");
+        this.stockReturn = stockReturn;
+        this.item = item;
+        this.dispatchedQuantity = expectedQuantity;
+        this.receivedQuantity = receivedQuantity;
+        this.frozenQuantity = expectedQuantity.subtract(receivedQuantity).abs();
+    }
+
     public Receipt getReceipt() { return receipt; }
     public GoodsReceivedNote getGrn() { return grn; }
+    public StockReturn getStockReturn() { return stockReturn; }
     public Item getItem() { return item; }
     public BigDecimal getDispatchedQuantity() { return dispatchedQuantity; }
     public BigDecimal getReceivedQuantity() { return receivedQuantity; }

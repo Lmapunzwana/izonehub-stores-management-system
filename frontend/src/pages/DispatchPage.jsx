@@ -1,85 +1,107 @@
 import { useState } from "react";
-import { Send, PackageCheck } from "lucide-react";
+import { Send, PackageCheck, FileText } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
+import { apiFetch } from "../api";
 
-// backend/.../movement/MaterialRequestStatus.java has no "Dispatched" or
-// "Received" value — dispatch() moves a request straight to IN_TRANSIT
-// ("In Transit"), and receive() resolves it to COMPLETED ("Received") or
-// DISCREPANCY ("Received (Discrepancy)").
 const STATUS_TYPE = {
-  Approved: "info",
+  Approved:  "info",
   "In Transit": "warning",
-  Received: "success",
+  Received:  "success",
   "Received (Discrepancy)": "danger",
 };
 
 export default function DispatchPage() {
-  const { materialRequests, dispatchRequest, markRequestReceived, initiateReturn } = useAppData();
+  const { materialRequests, dispatchRequest, markRequestReceived, user } = useAppData();
   const { showAlert } = useAppModal();
   const [collector, setCollector] = useState({});
-  const [returnModalOpen, setReturnModalOpen] = useState(false);
-  const [returnRequest, setReturnRequest] = useState(null);
-  const [returnLines, setReturnLines] = useState([]);
-  
-  const relevant = materialRequests.filter(
-    (r) => r.status !== "Pending Approval" && r.status !== "Rejected" && r.status !== "Draft"
-  );
+  const [busyId, setBusyId] = useState(null);
 
-  function openReturn(r) {
-    setReturnRequest(r);
-    // Initialize return lines with all received items, quantity 0, condition SERVICEABLE
-    setReturnLines(
-      r.original.lines.map((l) => ({
-        itemId: l.item.id,
-        itemName: l.item.name,
-        receivedQuantity: l.receivedQuantity || l.dispatchedQuantity || 0, // Fallback if no specific received field
-        quantity: 0,
-        condition: "SERVICEABLE",
-      }))
-    );
-    setReturnModalOpen(true);
+  const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
+  const isAdmin   = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
+  const isSite    = user?.roles?.includes("SITE_STORE_MANAGER");
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
-  async function handleReturn(e) {
-    e.preventDefault();
-    const payloadLines = returnLines
-      .filter((l) => l.quantity > 0)
-      .map(({ itemId, quantity, condition }) => ({ itemId, quantity: Number(quantity), condition }));
-    
-    if (payloadLines.length === 0) {
-      showAlert({ title: "Validation Error", message: "Please enter a return quantity for at least one item.", type: "warning" });
+  async function downloadMIV(requestId) {
+    try {
+      const blob = await apiFetch(`/api/material-requests/${requestId}/dispatch-note`);
+      downloadBlob(blob, `dispatch-note-${requestId}.pdf`);
+    } catch (e) {
+      showAlert({ title: "PDF Unavailable", message: "Could not download MIV document. " + (e?.message || ""), type: "warning" });
+    }
+  }
+
+  async function onDispatch(r) {
+    const name = collector[r.id]?.name || "";
+    if (!name.trim()) {
+      showAlert({ title: "Collector Required", message: "Please enter the collector's name before dispatching.", type: "warning" });
       return;
     }
-
+    setBusyId(r.id);
     try {
-      await initiateReturn(returnRequest.id, payloadLines);
-      setReturnModalOpen(false);
-      setReturnRequest(null);
-    } catch (err) {
-      console.error(err);
-      showAlert({ title: "Error", message: "Failed to initiate return. " + err.message, type: "danger" });
+      await dispatchRequest(r.id, name, collector[r.id]?.empId);
+      // PDF download immediately after successful dispatch
+      await downloadMIV(r.id);
+    } catch (e) {
+      showAlert({ title: "Dispatch Failed", message: e?.message || "Failed to dispatch.", type: "danger" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onMarkReceived(r) {
+    setBusyId(r.id);
+    try {
+      await markRequestReceived(r.id);
+    } catch (e) {
+      showAlert({ title: "Error", message: e?.message || "Failed to mark as received.", type: "danger" });
+    } finally {
+      setBusyId(null);
     }
   }
 
   function linesSummary(r) {
-    return r.lines.map((l) => `${l.item} × ${l.requested}`).join(", ") || "—";
+    return r.lines.map(l => `${l.item} × ${l.requested}`).join(", ") || "—";
   }
+
+  // Central/Admin: show approved items to dispatch
+  // Site Manager: show in-transit items to mark received
+  const centralItems = materialRequests.filter(r => r.status === "Approved" || r.status === "In Transit" || r.status === "Received" || r.status === "Received (Discrepancy)");
+  const siteItems    = materialRequests.filter(r => r.status === "In Transit");
+
+  const rows = (isCentral || isAdmin) ? centralItems : siteItems;
+
+  const awaitingDispatch = materialRequests.filter(r => r.status === "Approved").length;
 
   return (
     <div className="page">
       <div className="card">
         <CardHeader
           icon={<Send size={20} />}
-          title="Issues &amp; Dispatch"
-          subtitle="Approved requests move here for MIV creation and stock deduction"
+          title="Issues & Dispatch"
+          subtitle={
+            (isCentral || isAdmin)
+              ? "Create MIVs, dispatch approved requests, and download dispatch notes"
+              : "Items dispatched to your site store — mark as received once collected"
+          }
           status={{
-            label: `${materialRequests.filter((r) => r.status === "Approved").length} awaiting dispatch`,
-            variant: "warning",
+            label: (isCentral || isAdmin)
+              ? `${awaitingDispatch} awaiting dispatch`
+              : `${siteItems.length} in transit`,
+            variant: awaitingDispatch > 0 || siteItems.length > 0 ? "warning" : "success",
           }}
         />
+
         <table className="table">
           <thead>
             <tr>
@@ -91,168 +113,88 @@ export default function DispatchPage() {
             </tr>
           </thead>
           <tbody>
-            {relevant.map((r) => (
+            {rows.map((r) => (
               <tr key={r.requestNo}>
-                <td>{r.requestNo}</td>
+                <td style={{ fontWeight: 600 }}>{r.requestNo}</td>
                 <td>{r.project}</td>
-                <td>{linesSummary(r)}</td>
+                <td style={{ fontSize: 13, color: "#64748b" }}>{linesSummary(r)}</td>
                 <td>
                   <Badge type={STATUS_TYPE[r.status] || "default"}>{r.status}</Badge>
                 </td>
                 <td>
-                  {r.status === "Approved" && (
+                  {/* Central Manager: create MIV & dispatch for approved */}
+                  {r.status === "Approved" && (isCentral || isAdmin) && (
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <input
                         className="input"
-                        placeholder="Collector name"
-                        style={{ width: 140 }}
-                        value={collector[r.requestNo]?.name || ""}
-                        onChange={(e) =>
-                          setCollector((c) => ({
-                            ...c,
-                            [r.requestNo]: { ...c[r.requestNo], name: e.target.value },
-                          }))
-                        }
+                        placeholder="Collector name *"
+                        style={{ width: 150 }}
+                        value={collector[r.id]?.name || ""}
+                        onChange={e => setCollector(c => ({ ...c, [r.id]: { ...c[r.id], name: e.target.value } }))}
                       />
                       <button
                         className="ch-btn ch-btn--primary"
-                        onClick={async () => {
-                          await dispatchRequest(
-                            r.requestNo,
-                            collector[r.requestNo]?.name,
-                            collector[r.requestNo]?.empId
-                          );
-                          window.open(`/api/material-requests/${r.id}/dispatch-note`, "_blank");
-                        }}
+                        disabled={busyId === r.id}
+                        onClick={() => onDispatch(r)}
                       >
                         <Send size={16} />
-                        Create MIV & Dispatch
+                        {busyId === r.id ? "Creating…" : "Create MIV & Dispatch"}
                       </button>
                     </div>
                   )}
-                  {r.status === "In Transit" && (
+
+                  {/* Central Manager: in-transit — download MIV */}
+                  {r.status === "In Transit" && (isCentral || isAdmin) && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ color: "#64748b", fontSize: 13 }}>Awaiting site receipt</span>
+                      <button className="ch-btn ch-btn--outline" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => downloadMIV(r.id)}>
+                        <FileText size={14} /> MIV PDF
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Site Manager: mark received */}
+                  {r.status === "In Transit" && isSite && (
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <button
                         className="ch-btn ch-btn--success"
-                        onClick={async () => {
-                          await markRequestReceived(r.requestNo);
-                          window.open(`/api/material-requests/${r.id}/dispatch-note`, "_blank");
-                        }}
+                        disabled={busyId === r.id}
+                        onClick={() => onMarkReceived(r)}
                       >
                         <PackageCheck size={16} />
-                        Mark Received
+                        {busyId === r.id ? "Processing…" : "Mark Received"}
                       </button>
-                      <button
-                        className="ch-btn ch-btn--outline"
-                        style={{ padding: "6px 12px", fontSize: "13px" }}
-                        onClick={() => window.open(`/api/material-requests/${r.id}/dispatch-note`, "_blank")}
-                      >
-                        MIV PDF
+                      <button className="ch-btn ch-btn--outline" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => downloadMIV(r.id)}>
+                        <FileText size={14} /> MIV PDF
                       </button>
                     </div>
                   )}
+
+                  {/* Completed rows: MIV PDF only */}
                   {(r.status === "Received" || r.status === "Received (Discrepancy)") && (
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ color: "#64748b", fontSize: 13 }}>Complete</span>
-                      <button
-                        className="ch-btn ch-btn--outline"
-                        style={{ padding: "4px 8px", fontSize: "12px" }}
-                        onClick={() => window.open(`/api/material-requests/${r.id}/dispatch-note`, "_blank")}
-                      >
-                        MIV PDF
-                      </button>
-                      <button
-                        className="ch-btn ch-btn--primary"
-                        style={{ padding: "4px 8px", fontSize: "12px" }}
-                        onClick={() => openReturn(r)}
-                      >
-                        Return Items
+                      <button className="ch-btn ch-btn--outline" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => downloadMIV(r.id)}>
+                        <FileText size={14} /> MIV PDF
                       </button>
                     </div>
                   )}
                 </td>
               </tr>
             ))}
-            {relevant.length === 0 && (
+
+            {rows.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "#64748b" }}>
-                  Nothing to dispatch yet — approve a material request first.
+                <td colSpan={5} style={{ textAlign: "center", color: "#64748b", padding: "24px 0" }}>
+                  {(isCentral || isAdmin)
+                    ? "Nothing to dispatch yet — approve a material request first."
+                    : "No items currently in transit to your site store."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      {returnModalOpen && returnRequest && (
-        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
-          <div className="app-modal" style={{ maxWidth: 600, padding: 24, textAlign: "left" }}>
-            <h3 style={{ marginTop: 0 }}>Return Items (Request: {returnRequest.requestNo})</h3>
-            <form onSubmit={handleReturn}>
-              <table className="table" style={{ marginTop: 16 }}>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Max (Received)</th>
-                    <th>Return Qty</th>
-                    <th>Condition</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {returnLines.map((line, idx) => (
-                    <tr key={line.itemId}>
-                      <td>{line.itemName}</td>
-                      <td>{line.receivedQuantity}</td>
-                      <td>
-                        <input
-                          type="number"
-                          className="input"
-                          min="0"
-                          max={line.receivedQuantity}
-                          step="any"
-                          value={line.quantity || ""}
-                          onChange={(e) => {
-                            const newLines = [...returnLines];
-                            newLines[idx].quantity = e.target.value;
-                            setReturnLines(newLines);
-                          }}
-                          style={{ width: 80 }}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className="input"
-                          value={line.condition}
-                          onChange={(e) => {
-                            const newLines = [...returnLines];
-                            newLines[idx].condition = e.target.value;
-                            setReturnLines(newLines);
-                          }}
-                        >
-                          <option value="SERVICEABLE">Serviceable</option>
-                          <option value="DAMAGED">Damaged</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="modal-actions" style={{ marginTop: 24, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setReturnModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Submit Return
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

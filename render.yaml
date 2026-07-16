@@ -1,0 +1,47 @@
+services:
+  # 1. PostgreSQL Database
+  - type: psql
+    name: stores-db
+    plan: free # or 'starter' depending on your Render plan
+    databaseName: stores
+    user: stores
+
+  # 2. Unified Web Service (Frontend + Backend in one)
+  - type: web
+    name: stores-app
+    env: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free # or 'starter'
+    healthCheckPath: /actuator/health
+    envVars:
+      # Automatically connect to the Render PostgreSQL database
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: stores-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: stores-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: stores-db
+          property: password
+          
+      # Security Keys
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      
+      # Demo Company Details
+      - key: COMPANY_NAME
+        value: "New Sahara Ventures (Pvt) Ltd"
+      - key: COMPANY_EMAIL
+        value: "info@newsaharaventures.com"
+        
+      # Emails (Optional - Set these in the Render dashboard later)
+      # - key: APP_EMAIL_PROVIDER
+      #   value: resend
+      # - key: RESEND_API_KEY
+      #   value: <your-resend-key>

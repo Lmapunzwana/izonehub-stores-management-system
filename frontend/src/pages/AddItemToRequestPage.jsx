@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CirclePlus,
@@ -14,14 +14,31 @@ import {
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
+import { apiFetch } from "../api";
 
 export default function AddItemToRequestPage() {
   const navigate = useNavigate();
   const { items, addMaterialRequest, projects, stores } = useAppData();
   const [itemsInRequest, setItemsInRequest] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || "");
-  const centralStores = stores.filter((s) => s.type === "CENTRAL" && s.active);
-  const [sourceStoreId, setSourceStoreId] = useState(centralStores[0]?.id || "");
+  const [allStores, setAllStores] = useState([]);
+  
+  const [sourceStoreId, setSourceStoreId] = useState("");
+
+  useEffect(() => {
+    apiFetch("/api/stores?size=200&active=true&managedOnly=false")
+      .then((res) => {
+        const arr = Array.isArray(res) ? res : res.content || [];
+        const actives = arr.filter(s => s.active && !s.closing);
+        setAllStores(actives);
+        const central = actives.find(s => s.type === "CENTRAL");
+        if (central && !sourceStoreId) {
+          setSourceStoreId(central.id);
+        }
+      })
+      .catch((e) => console.error(e));
+  }, []);
+
   const [selectedItem, setSelectedItem] = useState(items[0]?.name || "");
   const [quantity, setQuantity] = useState(30);
 
@@ -92,14 +109,15 @@ export default function AddItemToRequestPage() {
             )}
           </div>
           <div>
-            <label>Source Store (Central)</label>
+            <label>Source Store</label>
             <select
               className="input"
               value={sourceStoreId}
               onChange={(e) => setSourceStoreId(e.target.value)}
+              disabled={true}
             >
               <option value="">Select a source store…</option>
-              {centralStores.map((s) => (
+              {allStores.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>

@@ -150,6 +150,16 @@ public class StoreInventory extends BaseEntity {
     }
 
     /**
+     * Move unaccounted variance from incoming supplier expected receipt directly to frozen
+     * (Expected receipts do not utilize in-transit state).
+     */
+    public void freezeGrnVariance(BigDecimal qty) {
+        requirePositive(qty);
+        quantityFrozen = quantityFrozen.add(qty);
+        touch();
+    }
+
+    /**
      * Release previously-frozen stock once a discrepancy is resolved.
      * If {@code recovered} is true the stock is found to genuinely exist and is
      * returned to on-hand; otherwise it is a permanent write-off and simply

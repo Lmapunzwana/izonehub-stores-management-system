@@ -11,4 +11,5 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
     long countByActiveTrueAndManager_Id(UUID managerId);
     long countByActiveTrueAndClosingFalse();
     boolean existsByType(StoreType type);
+    java.util.List<Store> findByManager_Id(UUID managerId);
 }
