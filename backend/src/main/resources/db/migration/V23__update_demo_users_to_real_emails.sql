@@ -3,22 +3,19 @@
 -- Update System Admin
 UPDATE app_users 
 SET email = 'lmapunzwana@gmail.com', 
-    first_name = 'Leroy', 
-    last_name = 'Mapunzwana' 
+    full_name = 'Leroy Mapunzwana'
 WHERE email = 'admin@demo.com';
 
 -- Update Central Manager
 UPDATE app_users 
 SET email = 'ronaldt.tsatsi@gmail.com', 
-    first_name = 'Ronald', 
-    last_name = 'Tsatsi' 
+    full_name = 'Ronald Tsatsi'
 WHERE email = 'central@demo.com';
 
 -- Update Site Manager
 UPDATE app_users 
 SET email = 'takudzwachitsungo2@gmail.com', 
-    first_name = 'Takudzwa', 
-    last_name = 'Chitsungo' 
+    full_name = 'Takudzwa Chitsungo'
 WHERE email = 'site@demo.com';
 
 -- Update Audit Logs for consistency with the new names
