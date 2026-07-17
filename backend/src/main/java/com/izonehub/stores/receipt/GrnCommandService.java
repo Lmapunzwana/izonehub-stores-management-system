@@ -34,9 +34,9 @@ public class GrnCommandService {
 
     @Transactional
     public GoodsReceivedNote confirm(ExpectedReceipt expectedReceipt, AppUser receivedBy) {
-        boolean hasVariance = expectedReceipt.getLines().stream().anyMatch(ExpectedReceiptLine::hasVariance);
+        boolean hasVariance = expectedReceipt.getLines().stream().filter(java.util.Objects::nonNull).anyMatch(ExpectedReceiptLine::hasVariance);
         expectedReceipt.getLines().forEach(line -> {
-            if (line.getReceivedQuantity().signum() == 0) {
+            if (line == null || line.getReceivedQuantity().signum() == 0) {
                 return;
             }
             if (line.getCondition() == ReceiptLineCondition.GOOD) {
@@ -51,7 +51,7 @@ public class GrnCommandService {
                 hasVariance ? GrnStatus.VARIANCE : GrnStatus.CLEAN));
         
         expectedReceipt.getLines().forEach(line -> {
-            if (line.hasVariance()) {
+            if (line != null && line.hasVariance()) {
                 BigDecimal variance = line.getExpectedQuantity().subtract(line.getReceivedQuantity()).abs();
                 inventory.freezeGrnVariance(expectedReceipt.getStore(), line.getItem(), variance);
                 discrepancies.save(new Discrepancy(grn, line.getItem(), line.getExpectedQuantity(), line.getReceivedQuantity()));

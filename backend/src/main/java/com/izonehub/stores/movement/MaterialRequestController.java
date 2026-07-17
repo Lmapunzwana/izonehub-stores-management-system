@@ -191,7 +191,7 @@ public class MaterialRequestController {
         */
 
         List<BigDecimal> quantities = (body == null || body.quantities() == null)
-                ? mr.getLines().stream().map(MaterialRequestLine::getRequestedQuantity).toList()
+                ? mr.getLines().stream().filter(java.util.Objects::nonNull).map(MaterialRequestLine::getRequestedQuantity).toList()
                 : body.quantities();
         return svc.approve(mr, approver, quantities);
     }
@@ -216,7 +216,7 @@ public class MaterialRequestController {
         // The current UI doesn't collect per-line quantities — dispatch the
         // full approved quantity for every line by default.
         List<BigDecimal> quantities = (body.dispatchedQuantities() == null)
-                ? mr.getLines().stream().map(MaterialRequestLine::getApprovedQuantity).toList()
+                ? mr.getLines().stream().filter(java.util.Objects::nonNull).map(MaterialRequestLine::getApprovedQuantity).toList()
                 : body.dispatchedQuantities();
         svc.dispatch(mr, dispatchedBy, body.collectorName(), body.collectorEmployeeId(), quantities);
         return find(id);
@@ -234,7 +234,7 @@ public class MaterialRequestController {
         // (matching what was dispatched, no variance) is the default; a future
         // discrepancy-entry UI can post explicit receivedQuantities instead.
         List<BigDecimal> quantities = (body == null || body.quantities() == null)
-                ? mr.getLines().stream().map(MaterialRequestLine::getDispatchedQuantity).toList()
+                ? mr.getLines().stream().filter(java.util.Objects::nonNull).map(MaterialRequestLine::getDispatchedQuantity).toList()
                 : body.quantities();
         svc.receive(mr, receivedBy, quantities);
         return find(id);
@@ -305,7 +305,7 @@ public class MaterialRequestController {
         }
         com.izonehub.stores.issuance.StockReturn result = returns.createPendingReturn(null, stockReturn);
         result.getStore().getName();
-        result.getLines().forEach(l -> l.getItem().getName());
+        result.getLines().forEach(l -> { if (l != null) l.getItem().getName(); });
 
         auditLog.record("STOCK_RETURN", result.getId().toString(), "CREATED",
                 "Recorded return to store '" + result.getStore().getName() + "' by " + returnedBy.getEmail(),

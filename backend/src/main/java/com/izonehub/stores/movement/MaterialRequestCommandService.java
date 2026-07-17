@@ -53,7 +53,9 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         request.submit();
         for (MaterialRequestLine line : request.getLines()) {
-            inventory.reserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+            if (line != null) {
+                inventory.reserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+            }
         }
         MaterialRequest saved = requests.save(request);
         auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "SUBMITTED",
@@ -82,6 +84,7 @@ public class MaterialRequestCommandService {
         List<String> stockErrors = new ArrayList<>();
         for (int i = 0; i < request.getLines().size(); i++) {
             MaterialRequestLine line = request.getLines().get(i);
+            if (line == null) continue;
             BigDecimal approved = approvedQuantities.get(i);
             inventoryRepo.findByStoreAndItem(request.getSourceStore(), line.getItem())
                     .ifPresentOrElse(inv -> {
@@ -101,6 +104,7 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         for (int i = 0; i < request.getLines().size(); i++) {
             MaterialRequestLine line = request.getLines().get(i);
+            if (line == null) continue;
             BigDecimal originallyRequested = line.getRequestedQuantity();
             line.approve(approvedQuantities.get(i));
             
@@ -131,7 +135,9 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         request.reject(approver, reason);
         for (MaterialRequestLine line : request.getLines()) {
-             inventory.unreserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+             if (line != null) {
+                 inventory.unreserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+             }
         }
         MaterialRequest saved = requests.save(request);
         notifyRequesterWithSubject(saved,
@@ -157,6 +163,7 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         for (int i = 0; i < request.getLines().size(); i++) {
             MaterialRequestLine line = request.getLines().get(i);
+            if (line == null) continue;
             line.dispatch(dispatchedQuantities.get(i));
             
             BigDecimal approved = line.getApprovedQuantity();
@@ -196,12 +203,17 @@ public class MaterialRequestCommandService {
 
         String old = request.getStatus().name();
         for (int i = 0; i < request.getLines().size(); i++) {
-            request.getLines().get(i).receive(receivedQuantities.get(i));
+            MaterialRequestLine line = request.getLines().get(i);
+            if (line != null) {
+                line.receive(receivedQuantities.get(i));
+            }
         }
-        boolean hasDiscrepancy = request.getLines().stream().anyMatch(MaterialRequestLine::hasReceiptVariance);
+        boolean hasDiscrepancy = request.getLines().stream().filter(java.util.Objects::nonNull).anyMatch(MaterialRequestLine::hasReceiptVariance);
         Receipt receipt = receipts.save(new Receipt(request, receivedBy,
                 hasDiscrepancy ? ReceiptStatus.DISCREPANCY : ReceiptStatus.CLEAN));
-        request.getLines().forEach(line -> applyReceiptLine(request, receipt, line));
+        request.getLines().forEach(line -> {
+            if (line != null) applyReceiptLine(request, receipt, line);
+        });
         request.markReceiptResult(hasDiscrepancy);
         requests.save(request);
         if (hasDiscrepancy) notifyRequester(request, "Material received with discrepancy");

@@ -115,6 +115,7 @@ public class ReturnController {
             
             // Validate return quantity does not exceed what was issued minus already returned
             miv.getLines().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(ml -> ml.getItem().getId().equals(item.getId()))
                 .findFirst()
                 .ifPresentOrElse(ml -> {
@@ -178,7 +179,7 @@ public class ReturnController {
         if (sr.getMiv() != null) {
             sr.getMiv().getProject().getName();
         }
-        sr.getLines().forEach(l -> l.getItem().getName());
+        sr.getLines().forEach(l -> { if (l != null) l.getItem().getName(); });
     }
 
     public record ReturnLineRequest(@NotNull UUID itemId, @NotNull BigDecimal quantity, @NotNull ReturnCondition condition) {}

@@ -61,6 +61,7 @@ public class InventoryQueryController {
 
         List<IncomingDelivery> incoming = pendingReceipts.stream()
                 .flatMap(r -> r.getLines().stream()
+                        .filter(java.util.Objects::nonNull)
                         .filter(l -> l.getItem().getId().equals(itemId))
                         .map(l -> new IncomingDelivery(
                                 r.getId(),

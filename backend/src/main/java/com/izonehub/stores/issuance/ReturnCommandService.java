@@ -27,7 +27,7 @@ public class ReturnCommandService {
         stockReturn.setStatus(ReturnStatus.PENDING_CONFIRMATION);
         Store siteStore = miv.getProject().getSiteStore();
         stockReturn.getLines().forEach(line -> {
-            inventory.dispatch(siteStore, line.getItem(), line.getQuantity());
+            if (line != null) inventory.dispatch(siteStore, line.getItem(), line.getQuantity());
         });
         return returns.save(stockReturn);
     }
@@ -40,6 +40,7 @@ public class ReturnCommandService {
         Store centralStore = miv != null ? miv.getStore() : stockReturn.getStore();
 
         stockReturn.getLines().forEach(line -> {
+            if (line == null) return;
             BigDecimal expectedQuantity = line.getQuantity();
             BigDecimal receivedQuantity = req.lines().stream()
                     .filter(cl -> cl.itemId().equals(line.getItem().getId()))
@@ -49,6 +50,7 @@ public class ReturnCommandService {
 
             if (miv != null) {
                 miv.getLines().stream()
+                        .filter(java.util.Objects::nonNull)
                         .filter(mivLine -> mivLine.getItem() == line.getItem())
                         .findFirst()
                         .ifPresent(mivLine -> mivLine.addReturn(expectedQuantity));

@@ -128,6 +128,7 @@ public class StockCountController {
         StockCount count = counts.findById(countId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         StockCountLine line = count.getLines().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(l -> l.getId().equals(lineId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Line not found on this count"));
         line.enterPhysicalCount(req.physicalQuantity());
@@ -148,6 +149,7 @@ public class StockCountController {
         StockCount count = counts.findById(countId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         StockCountLine line = count.getLines().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(l -> l.getId().equals(lineId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Line not found on this count"));
         line.flagForRecount();
@@ -176,6 +178,7 @@ public class StockCountController {
         StockCount count = counts.findById(countId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         StockCountLine line = count.getLines().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(l -> l.getId().equals(lineId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Line not found on this count"));
         if (line.getPhysicalQuantity() == null)
@@ -232,7 +235,7 @@ public class StockCountController {
         if (count.getInitiatedBy() != null) count.getInitiatedBy().getFullName();
         if (count.getLines() != null) {
             count.getLines().forEach(l -> {
-                if (l.getItem() != null) l.getItem().getName();
+                if (l != null && l.getItem() != null) l.getItem().getName();
             });
         }
     }
