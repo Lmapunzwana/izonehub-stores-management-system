@@ -46,7 +46,7 @@ const NAV_GROUPS = [
     section: "Operations",
     links: [
       { label: "Material Requests", path: "/material-requests", icon: ClipboardList, badge: "materialRequests" },
-      { label: "Consumption",       path: "/consumption",     icon: Flame,           badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+      { label: "Consumption",       path: "/consumption",     icon: Flame,           badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "SITE_STORE_MANAGER"] },
       { label: "Stock Counts",      path: "/stock-counts",    icon: CheckSquare,     badge: "stockCounts",     roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
     ],
   },

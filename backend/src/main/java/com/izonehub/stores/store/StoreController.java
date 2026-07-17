@@ -209,7 +209,7 @@ public class StoreController {
     }
 
     @PostMapping("/{id}/consume")
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','SITE_STORE_MANAGER')")
     @Transactional
     public void consumeItems(@PathVariable UUID id, @Valid @RequestBody ConsumeRequest req, @AuthenticationPrincipal String email) {

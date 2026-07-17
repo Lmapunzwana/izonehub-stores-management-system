@@ -85,5 +85,11 @@ export async function apiFetch(url, options = {}) {
     return response.blob();
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return text;
+  }
 }
