@@ -7,9 +7,19 @@ import { Package, Flame, Search, Calendar } from "lucide-react";
 import { apiFetch } from "../api";
 
 export default function ConsumptionPage() {
-  const { items, defaultStoreId, consumeItems } = useAppData();
+  const { items, defaultStoreId, consumeItems, stores } = useAppData();
   const { showAlert } = useAppModal();
   const [search, setSearch] = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
+
+  // Initialize selectedStoreId if it's not set
+  useEffect(() => {
+    if (!selectedStoreId && defaultStoreId) {
+      setSelectedStoreId(defaultStoreId);
+    }
+  }, [defaultStoreId, selectedStoreId]);
+
+  const siteStores = stores.filter(s => s.type === "SITE" && s.active);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
@@ -23,9 +33,9 @@ export default function ConsumptionPage() {
 
   // Fetch stock specific to the current site store
   useEffect(() => {
-    if (!defaultStoreId) return;
+    if (!selectedStoreId) return;
     setLoadingStock(true);
-    apiFetch(`/api/reports/current-stock?storeId=${defaultStoreId}`)
+    apiFetch(`/api/reports/current-stock?storeId=${selectedStoreId}`)
       .then((res) => {
         const rows = Array.isArray(res) ? res : res?.content || [];
         const stockMap = {};
@@ -36,7 +46,7 @@ export default function ConsumptionPage() {
       })
       .catch(err => console.error("Failed to fetch site stock:", err))
       .finally(() => setLoadingStock(false));
-  }, [defaultStoreId]);
+  }, [selectedStoreId]);
 
   function openConsumeModal(item) {
     setConsumeItem(item);
@@ -60,7 +70,7 @@ export default function ConsumptionPage() {
       return;
     }
     try {
-      await consumeItems(defaultStoreId, [{
+      await consumeItems(selectedStoreId, [{
         itemId: consumeItem.id,
         quantity: qty,
         consumedAt,
@@ -71,7 +81,7 @@ export default function ConsumptionPage() {
       showAlert({ title: "Success", message: `Successfully consumed ${qty} × ${consumeItem.name} on ${consumedAt}.`, type: "success" });
 
       // Refresh site stock after consumption
-      apiFetch(`/api/reports/current-stock?storeId=${defaultStoreId}`)
+      apiFetch(`/api/reports/current-stock?storeId=${selectedStoreId}`)
         .then((res) => {
           const rows = Array.isArray(res) ? res : res?.content || [];
           const stockMap = {};
@@ -114,7 +124,19 @@ export default function ConsumptionPage() {
           subtitle="Log items that have been utilized at this site. Select a date to record past consumption."
         />
 
-        <div className="filters" style={{ padding: "16px", borderBottom: "1px solid #f1f5f9" }}>
+        <div className="filters" style={{ padding: "16px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "16px", alignItems: "center" }}>
+          <div style={{ minWidth: "250px" }}>
+            <select
+              className="input"
+              value={selectedStoreId || ""}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+            >
+              <option value="" disabled>Select Site Store...</option>
+              {siteStores.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ position: "relative", maxWidth: "400px", flex: 1 }}>
             <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
             <input

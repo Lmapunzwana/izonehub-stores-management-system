@@ -28,6 +28,7 @@ export default function MaterialRequestsPage() {
   const [rejectModalId, setRejectModalId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [viewItemsModal, setViewItemsModal] = useState(null);
 
   // Site manager only sees requests from their projects
   const visibleRequests = (isCentral || isAdmin)
@@ -105,7 +106,11 @@ export default function MaterialRequestsPage() {
               <tr key={r.requestNo}>
                 <td style={{ fontWeight: 600 }}>{r.requestNo}</td>
                 <td>{r.project}</td>
-                <td style={{ fontSize: 13, color: "#64748b", maxWidth: 240 }}>{linesSummary(r)}</td>
+                <td>
+                  <button className="ch-btn ch-btn--outline" onClick={() => setViewItemsModal(r)} style={{ padding: "4px 8px", fontSize: 12 }}>
+                    View Items ({r.lines?.length || 0})
+                  </button>
+                </td>
                 <td style={{ fontSize: 13 }}>{r.requestedBy}</td>
                 <td>
                   <Badge type={STATUS_TYPE[r.status] || "default"}>{r.status}</Badge>
@@ -184,6 +189,47 @@ export default function MaterialRequestsPage() {
                 onClick={onReject}
               >
                 {busyId === rejectModalId ? "Rejecting…" : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Items modal */}
+      {viewItemsModal && (
+        <div className="app-modal-backdrop">
+          <div className="app-modal" style={{ maxWidth: 600, padding: 28, textAlign: "left" }}>
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Items for Request #{viewItemsModal.requestNo}</h3>
+            <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Requested</th>
+                    <th>Approved</th>
+                    <th>Dispatched</th>
+                    <th>Received</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(viewItemsModal.lines || []).map((l, idx) => (
+                    <tr key={idx}>
+                      <td>{l.item}</td>
+                      <td>{l.requested}</td>
+                      <td>{l.approved}</td>
+                      <td>{l.dispatched}</td>
+                      <td>{l.received}</td>
+                    </tr>
+                  ))}
+                  {(!viewItemsModal.lines || viewItemsModal.lines.length === 0) && (
+                    <tr><td colSpan={5} style={{ textAlign: "center" }}>No items found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="ch-btn ch-btn--outline" onClick={() => setViewItemsModal(null)}>
+                Close
               </button>
             </div>
           </div>

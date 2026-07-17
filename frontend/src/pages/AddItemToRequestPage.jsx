@@ -79,7 +79,7 @@ export default function AddItemToRequestPage() {
   );
   
   const sourceStats = (sourceStoreId && selectedItemCode && sourceStoreStock[selectedItemCode]) 
-        || { available: 0, reserved: 0, incoming: 0 };
+        || { available: 0, reserved: 0, incoming: 0, id: null };
         
   const available = sourceStats.available;
     
@@ -90,12 +90,29 @@ export default function AddItemToRequestPage() {
     navigate("/material-requests");
   }
 
-  async function onAddItem() {
-    if (!isValid || !selectedProject || busy) return;
+  function onAddItem() {
+    if (!isValid || !selectedProject) return;
+    
+    if (itemsInRequest.some(i => i.itemId === sourceStats.id)) {
+      alert("This item is already in the request. Please remove it first to adjust the quantity.");
+      return;
+    }
+
+    setItemsInRequest((rows) => [
+      ...rows,
+      { 
+        itemId: sourceStats.id, 
+        item: selectedItem, 
+        quantity: Number(quantity), 
+        status: "Draft" 
+      },
+    ]);
+    setQuantity(0);
+  }
+
+  async function onSubmitRequest() {
+    if (!selectedProject || busy || itemsInRequest.length === 0) return;
     setBusy(true);
-    // A project's material requests are always requesting stock into its
-    // own dedicated site store — there's no separate "which store is this
-    // for" choice once a project is picked.
     const requestingStoreId = selectedProject.original.siteStore?.id;
     if (!requestingStoreId) {
       setBusy(false);
@@ -107,15 +124,10 @@ export default function AddItemToRequestPage() {
         projectId: selectedProject.id,
         requestingStoreId,
         sourceStoreId,
-        quantity,
-        itemId: sourceStats.id, // <--- Pass the actual item UUID
-        item: selectedItem, // (Keep for local UI state/display fallback)
+        notes: "Requested via UI",
+        lines: itemsInRequest.map(r => ({ itemId: r.itemId, requestedQuantity: r.quantity }))
       });
-      setItemsInRequest((rows) => [
-        ...rows,
-        { item: selectedItem, quantity, status: "Pending Approval" },
-      ]);
-      setQuantity(0);
+      navigate("/material-requests");
     } finally {
       setBusy(false);
     }
@@ -130,7 +142,7 @@ export default function AddItemToRequestPage() {
       <div className="card">
         <CardHeader
           icon={<CirclePlus size={20} />}
-          title="Add Item to Material Request"
+          title="Create Material Request"
           subtitle={selectedProject ? [`Project: ${selectedProject.name}`, `Site: ${selectedProject.original.siteStore?.name || "—"}`] : []}
           status={{ label: isValid ? "Stock validated" : "Select a project", variant: isValid ? "success" : "warning" }}
         />
@@ -162,7 +174,6 @@ export default function AddItemToRequestPage() {
               className="input"
               value={sourceStoreId}
               onChange={(e) => setSourceStoreId(e.target.value)}
-              disabled={true}
             >
               <option value="">Select a source store…</option>
               {allStores.map((s) => (
@@ -241,7 +252,7 @@ export default function AddItemToRequestPage() {
         <hr className="divider" />
 
         <h2 className="card-title">Validation</h2>
-        <div className="validation-box">
+        <div className="validation-box" style={{ marginBottom: 16 }}>
           <div className="validation-header">
             <div className="validation-header-left">
               <CheckCircle2 size={18} />
@@ -274,10 +285,21 @@ export default function AddItemToRequestPage() {
             </span>
           </div>
         </div>
+        
+        <button
+          type="button"
+          className="ch-btn ch-btn--outline"
+          onClick={onAddItem}
+          disabled={!isValid}
+          style={{ marginBottom: 16 }}
+        >
+          <Plus size={16} />
+          Add to Request List
+        </button>
 
         <hr className="divider" />
 
-        <h2 className="card-title">Items Already in Request</h2>
+        <h2 className="card-title">Items in Request ({itemsInRequest.length})</h2>
         <table className="table">
           <thead>
             <tr>
@@ -289,11 +311,11 @@ export default function AddItemToRequestPage() {
           </thead>
           <tbody>
             {itemsInRequest.map((row, i) => (
-              <tr key={`${row.item}-${i}`}>
+              <tr key={`${row.itemId}-${i}`}>
                 <td>{row.item}</td>
                 <td>{row.quantity}</td>
                 <td>
-                  <Badge type="warning">{row.status}</Badge>
+                  <Badge type="default">{row.status}</Badge>
                 </td>
                 <td>
                   <button
@@ -307,6 +329,13 @@ export default function AddItemToRequestPage() {
                 </td>
               </tr>
             ))}
+            {itemsInRequest.length === 0 && (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', color: '#64748b', padding: '24px 0' }}>
+                  No items added to this request yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -333,12 +362,12 @@ export default function AddItemToRequestPage() {
             <button
               type="button"
               className="ch-btn ch-btn--primary"
-              onClick={onAddItem}
-              disabled={!isValid || busy}
-              style={(!isValid || busy) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={onSubmitRequest}
+              disabled={busy || itemsInRequest.length === 0}
+              style={(busy || itemsInRequest.length === 0) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
-              <Plus size={16} />
-              {busy ? "Adding…" : "Add Item"}
+              <CheckCircle2 size={16} />
+              {busy ? "Submitting Request…" : "Submit Request"}
             </button>
           </div>
         </div>

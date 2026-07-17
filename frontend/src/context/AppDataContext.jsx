@@ -434,8 +434,8 @@ export function AppDataProvider({ children }) {
   async function addMaterialRequest(request) {
     try {
       const proj = request.projectId ? projects.find((p) => p.id === request.projectId) : projects[0];
-      if (!request.itemId || !proj) {
-        console.error("Cannot create material request: no item or project available");
+      if (!proj) {
+        console.error("Cannot create material request: no project available");
         return;
       }
 
@@ -444,7 +444,7 @@ export function AppDataProvider({ children }) {
         sourceStoreId: request.sourceStoreId || defaultStoreId,
         projectId: proj.id,
         transferReason: request.notes || "Requested via UI",
-        lines: [{ itemId: request.itemId, requestedQuantity: request.quantity || 10 }],
+        lines: request.lines || [{ itemId: request.itemId, requestedQuantity: request.quantity || 10 }],
       };
       const created = await apiFetch("/api/material-requests", { method: "POST", body: payload });
       // A new MR starts as DRAFT; submit() moves it to PENDING_APPROVAL.

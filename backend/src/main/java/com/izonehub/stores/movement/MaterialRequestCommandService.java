@@ -52,6 +52,9 @@ public class MaterialRequestCommandService {
     public MaterialRequest submit(MaterialRequest request, AppUser submittedBy) {
         String old = request.getStatus().name();
         request.submit();
+        for (MaterialRequestLine line : request.getLines()) {
+            inventory.reserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+        }
         MaterialRequest saved = requests.save(request);
         auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "SUBMITTED",
                 "Request submitted by " + submittedBy.getEmail()
@@ -98,8 +101,13 @@ public class MaterialRequestCommandService {
         String old = request.getStatus().name();
         for (int i = 0; i < request.getLines().size(); i++) {
             MaterialRequestLine line = request.getLines().get(i);
+            BigDecimal originallyRequested = line.getRequestedQuantity();
             line.approve(approvedQuantities.get(i));
-            inventory.reserve(request.getSourceStore(), line.getItem(), line.getApprovedQuantity());
+            
+            // Adjust reservation if approved < requested
+            if (originallyRequested.compareTo(line.getApprovedQuantity()) > 0) {
+                inventory.unreserve(request.getSourceStore(), line.getItem(), originallyRequested.subtract(line.getApprovedQuantity()));
+            }
         }
         request.approve(approver);
         MaterialRequest saved = requests.save(request);
@@ -122,6 +130,9 @@ public class MaterialRequestCommandService {
     public MaterialRequest reject(MaterialRequest request, AppUser approver, String reason) {
         String old = request.getStatus().name();
         request.reject(approver, reason);
+        for (MaterialRequestLine line : request.getLines()) {
+             inventory.unreserve(request.getSourceStore(), line.getItem(), line.getRequestedQuantity());
+        }
         MaterialRequest saved = requests.save(request);
         notifyRequesterWithSubject(saved,
                 "Stores System — Material Request Rejected",

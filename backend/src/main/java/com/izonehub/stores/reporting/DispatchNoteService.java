@@ -147,7 +147,7 @@ public class DispatchNoteService {
                     request.getRaisedBy() != null ? request.getRaisedBy().getFullName() : "—",
                     sigLabelFont, sigValueFont));
             sig1.addCell(signatureCell("ISSUED BY",
-                    request.getRaisedBy() != null ? request.getRaisedBy().getFullName() : "—",
+                    request.getApprovedBy() != null ? request.getApprovedBy().getFullName() : "—",
                     sigLabelFont, sigValueFont));
             sig1.addCell(signatureCell("DISPATCHED BY",
                     dispatch.getDispatchedBy() != null ? dispatch.getDispatchedBy().getFullName() : "—",
