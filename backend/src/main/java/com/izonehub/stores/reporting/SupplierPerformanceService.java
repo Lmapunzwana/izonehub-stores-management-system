@@ -53,7 +53,9 @@ public class SupplierPerformanceService {
             List<GoodsReceivedNote> supplierGrns = entry.getValue();
 
             List<ExpectedReceiptLine> lines = supplierGrns.stream()
+                    .filter(g -> g.getExpectedReceipt() != null && g.getExpectedReceipt().getLines() != null)
                     .flatMap(g -> g.getExpectedReceipt().getLines().stream())
+                    .filter(l -> l != null)
                     .toList();
 
             BigDecimal totalExpected = lines.stream()
@@ -108,7 +110,9 @@ public class SupplierPerformanceService {
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> {
                     List<ExpectedReceiptLine> monthLines = e.getValue().stream()
+                            .filter(g -> g.getExpectedReceipt() != null && g.getExpectedReceipt().getLines() != null)
                             .flatMap(g -> g.getExpectedReceipt().getLines().stream())
+                            .filter(l -> l != null)
                             .toList();
                     long total = monthLines.size();
                     long accurate = monthLines.stream()
