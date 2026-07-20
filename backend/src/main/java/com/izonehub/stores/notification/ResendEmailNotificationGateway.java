@@ -56,7 +56,9 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("Resend: RESEND_API_KEY not set — email not sent to {}", user.getEmail());
             return;
-             // Build an HTML body for a nicer look in email clients
+        }
+
+        // Build an HTML body for a nicer look in email clients
         String htmlBody = EmailTemplateHelper.buildHtmlEmail(user.getFullName(), subject, message);
 
         // JSON payload — Resend accepts "html" and "text" fields
