@@ -30,6 +30,8 @@ public class Store extends BaseEntity{
     public void markClosing(){closing=true;}
     public void close(){active=false;closing=false;}
     public void reopen(){active=true;closing=false;}
+    public void setManager(AppUser manager) { this.manager = manager; }
+    public void setType(StoreType type) { this.type = type; }
 
     public void update(String name, StoreType type, String location, AppUser manager) {
         this.name = name;

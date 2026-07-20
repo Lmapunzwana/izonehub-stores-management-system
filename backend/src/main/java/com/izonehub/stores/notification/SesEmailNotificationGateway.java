@@ -42,6 +42,8 @@ public class SesEmailNotificationGateway implements EmailNotificationGateway {
             return;
         }
         try {
+            String htmlBody = EmailTemplateHelper.buildHtmlEmail(user.getFullName(), subject, message);
+
             sesClient.sendEmail(SendEmailRequest.builder()
                     .source(fromAddress)
                     .destination(Destination.builder().toAddresses(user.getEmail()).build())
@@ -49,6 +51,7 @@ public class SesEmailNotificationGateway implements EmailNotificationGateway {
                             .subject(Content.builder().data(subject).charset("UTF-8").build())
                             .body(Body.builder()
                                     .text(Content.builder().data(message).charset("UTF-8").build())
+                                    .html(Content.builder().data(htmlBody).charset("UTF-8").build())
                                     .build())
                             .build())
                     .build());
