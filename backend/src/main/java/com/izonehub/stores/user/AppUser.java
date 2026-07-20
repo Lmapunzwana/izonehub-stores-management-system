@@ -46,6 +46,9 @@ public class AppUser extends BaseEntity {
     @Column(nullable=false)
     private boolean locked=false;
 
+    @Column(nullable=false)
+    private boolean welcomeEmailSent=true;
+
     @JsonIgnore
     @ManyToOne(fetch=FetchType.LAZY)
     private AppUser createdBy;
@@ -73,6 +76,8 @@ public class AppUser extends BaseEntity {
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
     public boolean isLocked() { return locked; }
     public Instant getLastLogin() { return lastLogin; }
+    public boolean isWelcomeEmailSent() { return welcomeEmailSent; }
+    public void setWelcomeEmailSent(boolean sent) { this.welcomeEmailSent = sent; }
 
     public void deactivate() { active = false; }
     public void unlock() { locked = false; failedLoginAttempts = 0; }

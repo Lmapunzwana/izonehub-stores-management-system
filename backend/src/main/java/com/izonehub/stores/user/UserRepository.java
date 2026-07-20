@@ -14,4 +14,7 @@ public interface UserRepository extends JpaRepository<AppUser,UUID>{
     boolean existsByEmail(String email);
     
     List<AppUser> findByAssignedStore(com.izonehub.stores.store.Store store);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"assignedStore", "roles"})
+    List<AppUser> findByWelcomeEmailSentFalse();
 }
