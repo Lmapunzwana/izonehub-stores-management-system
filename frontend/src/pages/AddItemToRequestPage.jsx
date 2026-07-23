@@ -83,6 +83,13 @@ export default function AddItemToRequestPage() {
         
   const available = sourceStats.available;
     
+  const selectedItemUom = (() => {
+    if (!selectedItemCode) return "";
+    // Try to get UOM from the items array (which has original.unitOfMeasure)
+    const found = items.find(i => i.code === selectedItemCode);
+    return found?.original?.unitOfMeasure || "";
+  })();
+
   const requestedNum = Number(quantity) || 0;
   const isValid = requestedNum > 0 && requestedNum <= available && !!selectedProjectId && !!sourceStoreId;
 
@@ -104,6 +111,7 @@ export default function AddItemToRequestPage() {
         itemId: sourceStats.id, 
         item: selectedItem, 
         quantity: Number(quantity), 
+        uom: selectedItemUom,
         status: "Draft" 
       },
     ]);
@@ -198,14 +206,29 @@ export default function AddItemToRequestPage() {
             </div>
           </div>
           <div>
-            <label>Quantity Requested</label>
-            <input
-              className="input"
-              type="number"
-              placeholder="Enter quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
+            <label>Quantity Requested {selectedItemUom ? <span style={{ color: "#64748b", fontWeight: 400 }}>({selectedItemUom})</span> : ""}</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                className="input"
+                type="number"
+                placeholder="Enter quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              {selectedItemUom && (
+                <span style={{
+                  padding: "8px 12px",
+                  background: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  color: "#475569",
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                }}>{selectedItemUom}</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -305,6 +328,7 @@ export default function AddItemToRequestPage() {
             <tr>
               <th>Item</th>
               <th>Quantity</th>
+              <th>UOM</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -313,7 +337,8 @@ export default function AddItemToRequestPage() {
             {itemsInRequest.map((row, i) => (
               <tr key={`${row.itemId}-${i}`}>
                 <td>{row.item}</td>
-                <td>{row.quantity}</td>
+                <td style={{ fontWeight: 600 }}>{row.quantity}</td>
+                <td style={{ color: "#64748b", fontSize: 13 }}>{row.uom || "—"}</td>
                 <td>
                   <Badge type="default">{row.status}</Badge>
                 </td>
@@ -331,11 +356,27 @@ export default function AddItemToRequestPage() {
             ))}
             {itemsInRequest.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ textAlign: 'center', color: '#64748b', padding: '24px 0' }}>
+                <td colSpan={5} style={{ textAlign: 'center', color: '#64748b', padding: '24px 0' }}>
                   No items added to this request yet.
                 </td>
               </tr>
             )}
+            {itemsInRequest.length > 0 && (() => {
+              // Group totals by UOM
+              const uomTotals = itemsInRequest.reduce((acc, row) => {
+                const uom = row.uom || "units";
+                acc[uom] = (acc[uom] || 0) + Number(row.quantity);
+                return acc;
+              }, {});
+              return (
+                <tr style={{ background: "#f8fafc", fontWeight: 600 }}>
+                  <td style={{ color: "#475569" }}>Total ({itemsInRequest.length} line{itemsInRequest.length !== 1 ? "s" : ""})</td>
+                  <td colSpan={4} style={{ color: "#1e293b" }}>
+                    {Object.entries(uomTotals).map(([uom, qty]) => `${qty} ${uom}`).join(" + ")}
+                  </td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
 

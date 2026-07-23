@@ -75,9 +75,14 @@ export default function DispatchPage() {
   }
 
   // Central/Admin: show approved items to dispatch
-  // Site Manager: show in-transit items to mark received
+  // Site Manager: show approved (coming soon), in-transit, and received items to track full lifecycle
   const centralItems = materialRequests.filter(r => r.status === "Approved" || r.status === "In Transit" || r.status === "Received" || r.status === "Received (Discrepancy)");
-  const siteItems    = materialRequests.filter(r => r.status === "In Transit");
+  const siteItems    = materialRequests.filter(r =>
+    r.status === "Approved" ||
+    r.status === "In Transit" ||
+    r.status === "Received" ||
+    r.status === "Received (Discrepancy)"
+  );
 
   const rows = (isCentral || isAdmin) ? centralItems : siteItems;
 
@@ -92,13 +97,13 @@ export default function DispatchPage() {
           subtitle={
             (isCentral || isAdmin)
               ? "Create MIVs, dispatch approved requests, and download dispatch notes"
-              : "Items dispatched to your site store — mark as received once collected"
+              : "Track your material requests — from approval through dispatch, receipt, and beyond"
           }
           status={{
             label: (isCentral || isAdmin)
               ? `${awaitingDispatch} awaiting dispatch`
-              : `${siteItems.length} in transit`,
-            variant: awaitingDispatch > 0 || siteItems.length > 0 ? "warning" : "success",
+              : `${siteItems.filter(r => r.status === "In Transit").length} in transit`,
+            variant: awaitingDispatch > 0 || siteItems.filter(r => r.status === "In Transit").length > 0 ? "warning" : "success",
           }}
         />
 
@@ -188,7 +193,7 @@ export default function DispatchPage() {
                 <td colSpan={5} style={{ textAlign: "center", color: "#64748b", padding: "24px 0" }}>
                   {(isCentral || isAdmin)
                     ? "Nothing to dispatch yet — approve a material request first."
-                    : "No items currently in transit to your site store."}
+                    : "No material requests found for your site store yet."}
                 </td>
               </tr>
             )}

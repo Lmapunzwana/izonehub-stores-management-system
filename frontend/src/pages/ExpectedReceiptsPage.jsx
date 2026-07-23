@@ -19,6 +19,10 @@ export default function ExpectedReceiptsPage() {
 
   const { expectedReceipts, addExpectedReceipt, advanceReceiptStatus, items, stores, defaultStoreId, user } = useAppData();
 
+  // Helper: look up UOM for the currently-selected item
+  const selectedItemObj = items.find(i => i.id === newReceipt.itemId);
+  const selectedItemUom = selectedItemObj?.original?.unitOfMeasure || "";
+
   const isCentralManager = user?.roles?.includes("CENTRAL_STORE_MANAGER");
   const isAdmin          = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
 
@@ -174,15 +178,30 @@ export default function ExpectedReceiptsPage() {
             </div>
 
             <div>
-              <label>Expected Quantity</label>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                placeholder="e.g. 100"
-                value={newReceipt.quantity}
-                onChange={(e) => setNewReceipt(f => ({ ...f, quantity: e.target.value }))}
-              />
+              <label>Expected Quantity {selectedItemUom ? <span style={{ color: "#64748b", fontWeight: 400 }}>({selectedItemUom})</span> : ""}</label>
+              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 100"
+                  value={newReceipt.quantity}
+                  onChange={(e) => setNewReceipt(f => ({ ...f, quantity: e.target.value }))}
+                  style={{ flex: 1 }}
+                />
+                {selectedItemUom && (
+                  <span style={{
+                    padding: "8px 12px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    color: "#475569",
+                    fontWeight: 500,
+                    whiteSpace: "nowrap",
+                  }}>{selectedItemUom}</span>
+                )}
+              </div>
             </div>
 
             <div className="full actions-row">
@@ -201,6 +220,8 @@ export default function ExpectedReceiptsPage() {
             <tr>
               <th>Receipt No</th>
               <th>Supplier</th>
+              <th>Item</th>
+              <th>Qty / UOM</th>
               <th>Store</th>
               <th>ETA</th>
               <th>Status</th>
@@ -215,6 +236,16 @@ export default function ExpectedReceiptsPage() {
                 <tr key={r.receiptNo}>
                   <td style={{ fontWeight: 600 }}>{r.receiptNo}</td>
                   <td>{r.supplier}</td>
+                  <td style={{ fontSize: 13, color: "#475569" }}>
+                    {r.original?.lines?.map(l => l.item?.name).join(", ") || "—"}
+                  </td>
+                  <td style={{ fontSize: 13 }}>
+                    {r.original?.lines?.map(l => {
+                      const qty = l.expectedQuantity ?? l.receivedQuantity ?? "";
+                      const uom = l.item?.unitOfMeasure || "";
+                      return qty ? `${qty}${uom ? " " + uom : ""}` : "—";
+                    }).join(", ") || "—"}
+                  </td>
                   <td style={{ color: "#64748b", fontSize: 13 }}>{storeName(r)}</td>
                   <td>{r.eta || "—"}</td>
                   <td>

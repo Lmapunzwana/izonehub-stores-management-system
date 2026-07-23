@@ -205,6 +205,7 @@ export default function MaterialRequestsPage() {
                 <thead>
                   <tr>
                     <th>Item</th>
+                    <th>UOM</th>
                     <th>Requested</th>
                     <th>Approved</th>
                     <th>Dispatched</th>
@@ -214,16 +215,35 @@ export default function MaterialRequestsPage() {
                 <tbody>
                   {(viewItemsModal.lines || []).map((l, idx) => (
                     <tr key={idx}>
-                      <td>{l.item}</td>
-                      <td>{l.requested}</td>
-                      <td>{l.approved}</td>
-                      <td>{l.dispatched}</td>
-                      <td>{l.received}</td>
+                      <td style={{ fontWeight: 500 }}>{l.item}</td>
+                      <td style={{ color: "#64748b", fontSize: 13 }}>{l.uom || "—"}</td>
+                      <td style={{ fontWeight: 600 }}>{l.requested ?? "—"}</td>
+                      <td style={{ color: l.approved != null && l.approved > 0 ? "#16a34a" : l.approved === 0 ? "#dc2626" : "#64748b" }}>
+                        {l.approved != null ? l.approved : "—"}
+                      </td>
+                      <td>{l.dispatched ?? "—"}</td>
+                      <td style={{ color: l.received > 0 ? "#2563eb" : undefined }}>{l.received ?? "—"}</td>
                     </tr>
                   ))}
                   {(!viewItemsModal.lines || viewItemsModal.lines.length === 0) && (
-                    <tr><td colSpan={5} style={{ textAlign: "center" }}>No items found</td></tr>
+                    <tr><td colSpan={6} style={{ textAlign: "center" }}>No items found</td></tr>
                   )}
+                  {viewItemsModal.lines && viewItemsModal.lines.length > 0 && (() => {
+                    const uomTotals = viewItemsModal.lines.reduce((acc, l) => {
+                      const uom = l.uom || "units";
+                      acc[uom] = (acc[uom] || 0) + Number(l.requested || 0);
+                      return acc;
+                    }, {});
+                    return (
+                      <tr style={{ background: "#f8fafc", fontWeight: 600, borderTop: "2px solid #e2e8f0" }}>
+                        <td style={{ color: "#475569" }}>Total ({viewItemsModal.lines.length} line{viewItemsModal.lines.length !== 1 ? "s" : ""})</td>
+                        <td></td>
+                        <td colSpan={4} style={{ color: "#1e293b" }}>
+                          {Object.entries(uomTotals).map(([uom, qty]) => `${qty} ${uom}`).join(" + ")}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>

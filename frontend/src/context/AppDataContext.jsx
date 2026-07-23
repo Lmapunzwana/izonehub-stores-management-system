@@ -42,6 +42,7 @@ function mapMaterialRequest(r) {
     // not a single flat item/quantity (which the entity doesn't have).
     lines: (r.lines || []).map((l) => ({
       item: l.item?.name || "Unknown item",
+      uom: l.item?.unitOfMeasure || "",
       requested: l.requestedQuantity,
       approved: l.approvedQuantity,
       dispatched: l.dispatchedQuantity,
@@ -175,7 +176,7 @@ export function AppDataProvider({ children }) {
 
   async function refreshItems() {
     const [fetchedItems, fetchedStock] = await Promise.all([
-      apiFetch("/api/items?size=1000").catch(() => []),
+      apiFetch("/api/items?size=2000").catch(() => []),
       // GET /api/reports/current-stock — Item itself has no quantity field;
       // stock lives per-store in StoreInventory. This report joins the two.
       apiFetch("/api/reports/current-stock").catch(() => []),
@@ -273,7 +274,7 @@ export function AppDataProvider({ children }) {
           fetchedAuditLog,
           fetchedSupplierPerf,
         ] = await Promise.all([
-          apiFetch("/api/items").catch(() => []),
+          apiFetch("/api/items?size=2000").catch(() => []),
           apiFetch("/api/reports/current-stock").catch(() => []),
           apiFetch("/api/expected-receipts").catch(() => []),
           apiFetch("/api/material-requests").catch(() => []),

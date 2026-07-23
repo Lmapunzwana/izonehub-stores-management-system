@@ -6,7 +6,6 @@ import com.izonehub.stores.movement.MaterialRequest;
 import com.izonehub.stores.movement.MaterialRequestLine;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
@@ -18,8 +17,9 @@ import java.util.Locale;
 
 /**
  * Renders a branded, printable PDF dispatch note for a completed Dispatch.
- * Layout: letterhead -> title/reference block -> from/to + project meta ->
- * line-item table -> signature blocks -> footer strip.
+ * Layout: letterhead (via PdfLetterheadFooterEvent) -> title/reference block ->
+ * from/to + project meta -> line-item table -> signature blocks ->
+ * footer strip (via PdfLetterheadFooterEvent, pinned to page bottom).
  */
 @Service
 public class DispatchNoteService {
@@ -35,59 +35,30 @@ public class DispatchNoteService {
 
     public byte[] generate(Dispatch dispatch) {
         MaterialRequest request = dispatch.getMaterialRequest();
-        Color brand = brandColor();
-        Color lightBrand = tint(brand, 0.88f);
-        Color gray = new Color(110, 110, 110);
-        Color rowAlt = new Color(247, 247, 247);
+        Color brand   = brandColor();
+        Color gray    = new Color(110, 110, 110);
+        Color rowAlt  = new Color(247, 247, 247);
 
-        Font wordmarkFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, brand);
-        Font smallGray = FontFactory.getFont(FontFactory.HELVETICA, 8, gray);
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
-        Font refFont = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, gray);
-        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
+        Font titleFont       = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
+        Font refFont         = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
+        Font labelFont       = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, gray);
+        Font valueFont       = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
         Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
-        Font tableCellFont = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
-        Font sigLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, gray);
-        Font sigValueFont = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
-        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, gray);
+        Font tableCellFont   = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
+        Font sigLabelFont    = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, gray);
+        Font sigValueFont    = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
 
-        Document doc = new Document(PageSize.A4, 40, 40, 34, 40);
+        // Top margin must be large enough to clear the letterhead drawn by the event.
+        float topMargin = PdfLetterheadFooterEvent.HEADER_HEIGHT + 10f;
+        float botMargin = PdfLetterheadFooterEvent.FOOTER_HEIGHT + 10f;
+
+        Document doc = new Document(PageSize.A4, 40, 40, topMargin, botMargin);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
-            PdfWriter.getInstance(doc, out);
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            writer.setPageEvent(new PdfLetterheadFooterEvent(company));
             doc.open();
-
-            // ── Letterhead ──────────────────────────────────────────────
-            PdfPTable letterhead = new PdfPTable(2);
-            letterhead.setWidthPercentage(100);
-            letterhead.setWidths(new float[]{1.3f, 1f});
-
-            PdfPCell logoCell = new PdfPCell();
-            logoCell.setBorder(Rectangle.NO_BORDER);
-            Image logo = tryLoadLogo();
-            if (logo != null) {
-                logo.scaleToFit(140, 46);
-                logoCell.addElement(logo);
-            } else {
-                Paragraph wordmark = new Paragraph(safe(company.getName(), "Company Name"), wordmarkFont);
-                logoCell.addElement(wordmark);
-            }
-            letterhead.addCell(logoCell);
-
-            PdfPCell contactCell = new PdfPCell();
-            contactCell.setBorder(Rectangle.NO_BORDER);
-            contactCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            contactCell.addElement(rightAligned(safe(company.getAddressLine1(), ""), smallGray));
-            if (notBlank(company.getAddressLine2())) contactCell.addElement(rightAligned(company.getAddressLine2(), smallGray));
-            if (notBlank(company.getPhone())) contactCell.addElement(rightAligned(company.getPhone(), smallGray));
-            if (notBlank(company.getEmail())) contactCell.addElement(rightAligned(company.getEmail(), smallGray));
-            if (notBlank(company.getWebsite())) contactCell.addElement(rightAligned(company.getWebsite(), smallGray));
-            letterhead.addCell(contactCell);
-            doc.add(letterhead);
-
-            doc.add(rule(brand, 1.6f, 10, 14));
 
             // ── Title + reference ───────────────────────────────────────
             PdfPTable titleRow = new PdfPTable(2);
@@ -112,7 +83,9 @@ public class DispatchNoteService {
             meta.setWidths(new float[]{1f, 1f, 1f});
             meta.addCell(metaCell("FROM", request.getSourceStore().getName(), labelFont, valueFont));
             meta.addCell(metaCell("TO", request.getRequestingStore().getName(), labelFont, valueFont));
-            meta.addCell(metaCell("PROJECT / REF", request.getProject() != null ? safe(request.getProject().getCode(), "—") : "—", labelFont, valueFont));
+            meta.addCell(metaCell("PROJECT / REF",
+                    request.getProject() != null ? safe(request.getProject().getCode(), "—") : "—",
+                    labelFont, valueFont));
             doc.add(meta);
             doc.add(spacer(16));
 
@@ -121,10 +94,10 @@ public class DispatchNoteService {
             table.setWidthPercentage(100);
             table.setWidths(new float[]{0.5f, 3.2f, 0.9f, 1f});
 
-            table.addCell(headerCell("#", tableHeaderFont, brand, Element.ALIGN_CENTER));
+            table.addCell(headerCell("#",           tableHeaderFont, brand, Element.ALIGN_CENTER));
             table.addCell(headerCell("DESCRIPTION", tableHeaderFont, brand, Element.ALIGN_LEFT));
-            table.addCell(headerCell("UOM", tableHeaderFont, brand, Element.ALIGN_CENTER));
-            table.addCell(headerCell("QUANTITY", tableHeaderFont, brand, Element.ALIGN_RIGHT));
+            table.addCell(headerCell("UOM",         tableHeaderFont, brand, Element.ALIGN_CENTER));
+            table.addCell(headerCell("QUANTITY",    tableHeaderFont, brand, Element.ALIGN_RIGHT));
 
             List<MaterialRequestLine> lines = request.getLines();
             for (int i = 0; i < lines.size(); i++) {
@@ -133,13 +106,14 @@ public class DispatchNoteService {
                 table.addCell(bodyCell(String.valueOf(i + 1), tableCellFont, bg, Element.ALIGN_CENTER));
                 table.addCell(bodyCell(line.getItem().getName(), tableCellFont, bg, Element.ALIGN_LEFT));
                 table.addCell(bodyCell(line.getItem().getUnitOfMeasure(), tableCellFont, bg, Element.ALIGN_CENTER));
-                table.addCell(bodyCell(line.getDispatchedQuantity().stripTrailingZeros().toPlainString(),
+                table.addCell(bodyCell(
+                        line.getDispatchedQuantity().stripTrailingZeros().toPlainString(),
                         tableCellFont, bg, Element.ALIGN_RIGHT));
             }
             doc.add(table);
             doc.add(spacer(30));
 
-            // ── Signatures (Row 1): Requested By | Issued By | Dispatched By ──────
+            // ── Signatures (Row 1): Requested By | Issued By | Dispatched By
             PdfPTable sig1 = new PdfPTable(3);
             sig1.setWidthPercentage(100);
             sig1.setWidths(new float[]{1f, 1f, 1f});
@@ -155,7 +129,7 @@ public class DispatchNoteService {
             doc.add(sig1);
             doc.add(spacer(16));
 
-            // ── Signatures (Row 2): Collected By | Received By (blank) ───────────
+            // ── Signatures (Row 2): Collected By | Received By (blank)
             PdfPTable sig2 = new PdfPTable(2);
             sig2.setWidthPercentage(100);
             sig2.setWidths(new float[]{1f, 1f});
@@ -164,17 +138,6 @@ public class DispatchNoteService {
                     sigLabelFont, sigValueFont));
             sig2.addCell(signatureCellBlank("RECEIVED BY\n(Full Name & Signature)", sigLabelFont));
             doc.add(sig2);
-
-
-            // ── Footer strip ─────────────────────────────────────────────
-            doc.add(spacer(28));
-            doc.add(rule(lightBrand, 0.8f, 0, 6));
-            Paragraph footer = new Paragraph();
-            footer.setAlignment(Element.ALIGN_CENTER);
-            footer.add(new Chunk(safe(company.getName(), ""), footerFont));
-            if (notBlank(company.getAddressLine1())) footer.add(new Chunk("   |   " + company.getAddressLine1(), footerFont));
-            if (notBlank(company.getPhone())) footer.add(new Chunk("   |   " + company.getPhone(), footerFont));
-            doc.add(footer);
 
             doc.close();
         } catch (DocumentException e) {
@@ -191,24 +154,6 @@ public class DispatchNoteService {
             return Color.decode(company.getBrandColor());
         } catch (Exception e) {
             return new Color(31, 122, 61);
-        }
-    }
-
-    private Color tint(Color base, float towardWhite) {
-        int r = (int) (base.getRed() + (255 - base.getRed()) * towardWhite);
-        int g = (int) (base.getGreen() + (255 - base.getGreen()) * towardWhite);
-        int b = (int) (base.getBlue() + (255 - base.getBlue()) * towardWhite);
-        return new Color(r, g, b);
-    }
-
-    private Image tryLoadLogo() {
-        String path = company.getLogoClasspath();
-        if (path == null || path.isBlank()) return null;
-        try {
-            byte[] bytes = new ClassPathResource(path).getInputStream().readAllBytes();
-            return Image.getInstance(bytes);
-        } catch (Exception e) {
-            return null;
         }
     }
 
@@ -234,19 +179,6 @@ public class DispatchNoteService {
         PdfPCell c = new PdfPCell();
         c.setBorder(Rectangle.NO_BORDER);
         return c;
-    }
-
-    private PdfPTable rule(Color color, float thickness, float spaceBefore, float spaceAfter) {
-        PdfPTable line = new PdfPTable(1);
-        line.setWidthPercentage(100);
-        PdfPCell cell = new PdfPCell();
-        cell.setFixedHeight(thickness);
-        cell.setBackgroundColor(color);
-        cell.setBorder(Rectangle.NO_BORDER);
-        line.addCell(cell);
-        line.setSpacingBefore(spaceBefore);
-        line.setSpacingAfter(spaceAfter);
-        return line;
     }
 
     private PdfPTable spacer(float height) {
@@ -316,7 +248,6 @@ public class DispatchNoteService {
         Paragraph l = new Paragraph(label, labelFont);
         l.setSpacingAfter(6);
         cell.addElement(l);
-        // Draw a solid underline for the handwritten signature area
         PdfPTable underline = new PdfPTable(1);
         underline.setWidthPercentage(90);
         PdfPCell line = new PdfPCell();
@@ -325,8 +256,7 @@ public class DispatchNoteService {
         line.setBorder(Rectangle.NO_BORDER);
         underline.addCell(line);
         cell.addElement(underline);
-        cell.addElement(new Paragraph(" ", labelFont)); // spacer
+        cell.addElement(new Paragraph(" ", labelFont));
         return cell;
     }
 }
-

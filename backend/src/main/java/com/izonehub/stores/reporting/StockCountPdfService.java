@@ -5,16 +5,15 @@ import com.izonehub.stores.count.StockCount;
 import com.izonehub.stores.count.StockCountLine;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.math.BigDecimal;
 
 @Service
 public class StockCountPdfService {
@@ -31,58 +30,28 @@ public class StockCountPdfService {
     }
 
     public byte[] generate(StockCount count) {
-        Color brand = brandColor();
-        Color lightBrand = tint(brand, 0.88f);
-        Color gray = new Color(110, 110, 110);
+        Color brand  = brandColor();
+        Color gray   = new Color(110, 110, 110);
         Color rowAlt = new Color(247, 247, 247);
 
-        Font wordmarkFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, brand);
-        Font smallGray = FontFactory.getFont(FontFactory.HELVETICA, 8, gray);
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
-        Font refFont = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, gray);
-        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
-        Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
-        Font tableCellFont = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
-        Font tableCellBoldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, new Color(40, 40, 40));
-        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, gray);
+        Font titleFont        = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
+        Font refFont          = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
+        Font labelFont        = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, gray);
+        Font valueFont        = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(30, 30, 30));
+        Font tableHeaderFont  = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
+        Font tableCellFont    = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
+        Font tableCellBoldFont= FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, new Color(40, 40, 40));
 
-        Document doc = new Document(PageSize.A4, 40, 40, 34, 40);
+        float topMargin = PdfLetterheadFooterEvent.HEADER_HEIGHT + 10f;
+        float botMargin = PdfLetterheadFooterEvent.FOOTER_HEIGHT + 10f;
+
+        Document doc = new Document(PageSize.A4, 40, 40, topMargin, botMargin);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
-            PdfWriter.getInstance(doc, out);
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            writer.setPageEvent(new PdfLetterheadFooterEvent(company));
             doc.open();
-
-            // ── Letterhead ──────────────────────────────────────────────
-            PdfPTable letterhead = new PdfPTable(2);
-            letterhead.setWidthPercentage(100);
-            letterhead.setWidths(new float[]{1.3f, 1f});
-
-            PdfPCell logoCell = new PdfPCell();
-            logoCell.setBorder(Rectangle.NO_BORDER);
-            Image logo = tryLoadLogo();
-            if (logo != null) {
-                logo.scaleToFit(140, 46);
-                logoCell.addElement(logo);
-            } else {
-                Paragraph wordmark = new Paragraph(safe(company.getName(), "Company Name"), wordmarkFont);
-                logoCell.addElement(wordmark);
-            }
-            letterhead.addCell(logoCell);
-
-            PdfPCell contactCell = new PdfPCell();
-            contactCell.setBorder(Rectangle.NO_BORDER);
-            contactCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            contactCell.addElement(rightAligned(safe(company.getAddressLine1(), ""), smallGray));
-            if (notBlank(company.getAddressLine2())) contactCell.addElement(rightAligned(company.getAddressLine2(), smallGray));
-            if (notBlank(company.getPhone())) contactCell.addElement(rightAligned(company.getPhone(), smallGray));
-            if (notBlank(company.getEmail())) contactCell.addElement(rightAligned(company.getEmail(), smallGray));
-            if (notBlank(company.getWebsite())) contactCell.addElement(rightAligned(company.getWebsite(), smallGray));
-            letterhead.addCell(contactCell);
-            doc.add(letterhead);
-
-            doc.add(rule(brand, 1.6f, 10, 14));
 
             // ── Title + reference ───────────────────────────────────────
             PdfPTable titleRow = new PdfPTable(2);
@@ -105,9 +74,9 @@ public class StockCountPdfService {
             PdfPTable meta = new PdfPTable(3);
             meta.setWidthPercentage(100);
             meta.setWidths(new float[]{1f, 1f, 1f});
-            meta.addCell(metaCell("STORE", count.getStore().getName(), labelFont, valueFont));
-            meta.addCell(metaCell("INITIATED BY", count.getInitiatedBy().getFullName(), labelFont, valueFont));
-            meta.addCell(metaCell("STATUS", count.getStatus().name(), labelFont, valueFont));
+            meta.addCell(metaCell("STORE",        count.getStore().getName(),              labelFont, valueFont));
+            meta.addCell(metaCell("INITIATED BY", count.getInitiatedBy().getFullName(),    labelFont, valueFont));
+            meta.addCell(metaCell("STATUS",       count.getStatus().name(),                labelFont, valueFont));
             doc.add(meta);
             doc.add(spacer(16));
 
@@ -116,11 +85,11 @@ public class StockCountPdfService {
             table.setWidthPercentage(100);
             table.setWidths(new float[]{0.5f, 3.2f, 1f, 1f, 1f});
 
-            table.addCell(headerCell("#", tableHeaderFont, brand, Element.ALIGN_CENTER));
-            table.addCell(headerCell("ITEM", tableHeaderFont, brand, Element.ALIGN_LEFT));
-            table.addCell(headerCell("SYSTEM QTY", tableHeaderFont, brand, Element.ALIGN_RIGHT));
+            table.addCell(headerCell("#",            tableHeaderFont, brand, Element.ALIGN_CENTER));
+            table.addCell(headerCell("ITEM",         tableHeaderFont, brand, Element.ALIGN_LEFT));
+            table.addCell(headerCell("SYSTEM QTY",   tableHeaderFont, brand, Element.ALIGN_RIGHT));
             table.addCell(headerCell("PHYSICAL QTY", tableHeaderFont, brand, Element.ALIGN_RIGHT));
-            table.addCell(headerCell("VARIANCE", tableHeaderFont, brand, Element.ALIGN_RIGHT));
+            table.addCell(headerCell("VARIANCE",     tableHeaderFont, brand, Element.ALIGN_RIGHT));
 
             List<StockCountLine> lines = count.getLines();
             for (int i = 0; i < lines.size(); i++) {
@@ -128,32 +97,23 @@ public class StockCountPdfService {
                 Color bg = (i % 2 == 0) ? Color.WHITE : rowAlt;
                 table.addCell(bodyCell(String.valueOf(i + 1), tableCellFont, bg, Element.ALIGN_CENTER));
                 table.addCell(bodyCell(line.getItem().getName(), tableCellFont, bg, Element.ALIGN_LEFT));
-                table.addCell(bodyCell(line.getSystemQuantitySnapshot().stripTrailingZeros().toPlainString(),
+                table.addCell(bodyCell(
+                        line.getSystemQuantitySnapshot().stripTrailingZeros().toPlainString(),
                         tableCellFont, bg, Element.ALIGN_RIGHT));
-                
-                String physQty = line.getPhysicalQuantity() != null ? line.getPhysicalQuantity().stripTrailingZeros().toPlainString() : "—";
+
+                String physQty = line.getPhysicalQuantity() != null
+                        ? line.getPhysicalQuantity().stripTrailingZeros().toPlainString()
+                        : "—";
                 table.addCell(bodyCell(physQty, tableCellFont, bg, Element.ALIGN_RIGHT));
 
-                BigDecimal variance = line.getVarianceQuantity();
-                String varianceStr = variance != null ? variance.stripTrailingZeros().toPlainString() : "—";
-                Font varFont = tableCellFont;
-                if (variance != null && variance.compareTo(BigDecimal.ZERO) != 0) {
-                    varFont = tableCellBoldFont;
-                }
+                BigDecimal variance   = line.getVarianceQuantity();
+                String varianceStr    = variance != null ? variance.stripTrailingZeros().toPlainString() : "—";
+                Font   varFont        = (variance != null && variance.compareTo(BigDecimal.ZERO) != 0)
+                        ? tableCellBoldFont : tableCellFont;
                 table.addCell(bodyCell(varianceStr, varFont, bg, Element.ALIGN_RIGHT));
             }
             doc.add(table);
             doc.add(spacer(30));
-
-            // ── Footer strip ─────────────────────────────────────────────
-            doc.add(spacer(28));
-            doc.add(rule(lightBrand, 0.8f, 0, 6));
-            Paragraph footer = new Paragraph();
-            footer.setAlignment(Element.ALIGN_CENTER);
-            footer.add(new Chunk(safe(company.getName(), ""), footerFont));
-            if (notBlank(company.getAddressLine1())) footer.add(new Chunk("   |   " + company.getAddressLine1(), footerFont));
-            if (notBlank(company.getPhone())) footer.add(new Chunk("   |   " + company.getPhone(), footerFont));
-            doc.add(footer);
 
             doc.close();
         } catch (DocumentException e) {
@@ -165,72 +125,57 @@ public class StockCountPdfService {
 
     public byte[] generateFullAudit(StockCount count) {
         Color brand = brandColor();
-        Color lightBrand = tint(brand, 0.88f);
-        Color gray = new Color(110, 110, 110);
-        Color rowAlt = new Color(247, 247, 247);
+        Color gray  = new Color(110, 110, 110);
+        Color rowAlt= new Color(247, 247, 247);
 
-        Font wordmarkFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, brand);
-        Font smallGray = FontFactory.getFont(FontFactory.HELVETICA, 8, gray);
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
-        Font refFont = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
-        Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
-        Font tableCellFont = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
+        Font titleFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(30, 30, 30));
+        Font refFont        = FontFactory.getFont(FontFactory.HELVETICA, 9, gray);
+        Font tableHeaderFont= FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
+        Font tableCellFont  = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, new Color(40, 40, 40));
 
-        Document doc = new Document(PageSize.A4, 40, 40, 34, 40);
+        float topMargin = PdfLetterheadFooterEvent.HEADER_HEIGHT + 10f;
+        float botMargin = PdfLetterheadFooterEvent.FOOTER_HEIGHT + 10f;
+
+        Document doc = new Document(PageSize.A4, 40, 40, topMargin, botMargin);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
-            PdfWriter.getInstance(doc, out);
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            writer.setPageEvent(new PdfLetterheadFooterEvent(company));
             doc.open();
-
-            PdfPTable letterhead = new PdfPTable(2);
-            letterhead.setWidthPercentage(100);
-            letterhead.setWidths(new float[]{1.3f, 1f});
-
-            PdfPCell logoCell = new PdfPCell();
-            logoCell.setBorder(Rectangle.NO_BORDER);
-            Image logo = tryLoadLogo();
-            if (logo != null) {
-                logo.scaleToFit(140, 46);
-                logoCell.addElement(logo);
-            } else {
-                logoCell.addElement(new Paragraph(safe(company.getName(), "Company Name"), wordmarkFont));
-            }
-            letterhead.addCell(logoCell);
-
-            PdfPCell contactCell = new PdfPCell();
-            contactCell.setBorder(Rectangle.NO_BORDER);
-            contactCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            contactCell.addElement(rightAligned(safe(company.getAddressLine1(), ""), smallGray));
-            letterhead.addCell(contactCell);
-            doc.add(letterhead);
-            doc.add(rule(brand, 1.6f, 10, 14));
 
             Paragraph title = new Paragraph("COMPREHENSIVE SKU AUDIT REPORT", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             title.setSpacingAfter(15);
             doc.add(title);
 
-            Paragraph subtitle = new Paragraph("Stock Count Ref: AC-" + shortId(count.getId()) + " | Store: " + count.getStore().getName(), refFont);
+            Paragraph subtitle = new Paragraph(
+                    "Stock Count Ref: AC-" + shortId(count.getId()) + " | Store: " + count.getStore().getName(),
+                    refFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
             subtitle.setSpacingAfter(20);
             doc.add(subtitle);
 
-            List<com.izonehub.stores.audit.AuditLog> storeLogs = auditLogRepo.findByEntityTypeAndEntityIdOrderByPerformedAtDesc("INVENTORY", count.getStore().getId().toString());
+            List<com.izonehub.stores.audit.AuditLog> storeLogs =
+                    auditLogRepo.findByEntityTypeAndEntityIdOrderByPerformedAtDesc(
+                            "INVENTORY", count.getStore().getId().toString());
 
             for (StockCountLine line : count.getLines()) {
-                doc.add(new Paragraph("SKU: " + line.getItem().getName() + " (" + line.getItem().getCode() + ")", titleFont));
+                doc.add(new Paragraph(
+                        "SKU: " + line.getItem().getName() + " (" + line.getItem().getCode() + ")",
+                        titleFont));
                 doc.add(spacer(10));
 
                 PdfPTable table = new PdfPTable(3);
                 table.setWidthPercentage(100);
                 table.setWidths(new float[]{1f, 3f, 1f});
-                table.addCell(headerCell("Date", tableHeaderFont, brand, Element.ALIGN_LEFT));
+                table.addCell(headerCell("Date",              tableHeaderFont, brand, Element.ALIGN_LEFT));
                 table.addCell(headerCell("Event Description", tableHeaderFont, brand, Element.ALIGN_LEFT));
-                table.addCell(headerCell("Performed By", tableHeaderFont, brand, Element.ALIGN_LEFT));
+                table.addCell(headerCell("Performed By",      tableHeaderFont, brand, Element.ALIGN_LEFT));
 
                 List<com.izonehub.stores.audit.AuditLog> skuLogs = storeLogs.stream()
-                        .filter(l -> l.getDescription() != null && l.getDescription().contains(line.getItem().getName()))
+                        .filter(l -> l.getDescription() != null
+                                && l.getDescription().contains(line.getItem().getName()))
                         .toList();
 
                 if (skuLogs.isEmpty()) {
@@ -242,8 +187,8 @@ public class StockCountPdfService {
                         com.izonehub.stores.audit.AuditLog lg = skuLogs.get(i);
                         Color bg = (i % 2 == 0) ? Color.WHITE : rowAlt;
                         table.addCell(bodyCell(DATE_FMT.format(lg.getPerformedAt()), tableCellFont, bg, Element.ALIGN_LEFT));
-                        table.addCell(bodyCell(lg.getDescription(), tableCellFont, bg, Element.ALIGN_LEFT));
-                        table.addCell(bodyCell(lg.getPerformedBy(), tableCellFont, bg, Element.ALIGN_LEFT));
+                        table.addCell(bodyCell(lg.getDescription(),   tableCellFont, bg, Element.ALIGN_LEFT));
+                        table.addCell(bodyCell(lg.getPerformedBy(),   tableCellFont, bg, Element.ALIGN_LEFT));
                     }
                 }
                 doc.add(table);
@@ -263,24 +208,6 @@ public class StockCountPdfService {
             return Color.decode(company.getBrandColor());
         } catch (Exception e) {
             return new Color(31, 122, 61);
-        }
-    }
-
-    private Color tint(Color base, float towardWhite) {
-        int r = (int) (base.getRed() + (255 - base.getRed()) * towardWhite);
-        int g = (int) (base.getGreen() + (255 - base.getGreen()) * towardWhite);
-        int b = (int) (base.getBlue() + (255 - base.getBlue()) * towardWhite);
-        return new Color(r, g, b);
-    }
-
-    private Image tryLoadLogo() {
-        String path = company.getLogoClasspath();
-        if (path == null || path.isBlank()) return null;
-        try {
-            byte[] bytes = new ClassPathResource(path).getInputStream().readAllBytes();
-            return Image.getInstance(bytes);
-        } catch (Exception e) {
-            return null;
         }
     }
 
@@ -306,19 +233,6 @@ public class StockCountPdfService {
         PdfPCell c = new PdfPCell();
         c.setBorder(Rectangle.NO_BORDER);
         return c;
-    }
-
-    private PdfPTable rule(Color color, float thickness, float spaceBefore, float spaceAfter) {
-        PdfPTable line = new PdfPTable(1);
-        line.setWidthPercentage(100);
-        PdfPCell cell = new PdfPCell();
-        cell.setFixedHeight(thickness);
-        cell.setBackgroundColor(color);
-        cell.setBorder(Rectangle.NO_BORDER);
-        line.addCell(cell);
-        line.setSpacingBefore(spaceBefore);
-        line.setSpacingAfter(spaceAfter);
-        return line;
     }
 
     private PdfPTable spacer(float height) {
