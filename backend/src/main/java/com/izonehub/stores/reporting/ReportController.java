@@ -52,7 +52,7 @@ public class ReportController {
         ReportFilter filter = new ReportFilter(null, null, storeId, itemId, projectId, category);
         List<CurrentStockRow> rows = reportService.currentStock(filter);
 
-        if (email != null) {
+        if (email != null && storeId == null) {
             com.izonehub.stores.user.AppUser user = users.findByEmail(email).orElse(null);
             if (user != null) {
                 boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
@@ -60,15 +60,7 @@ public class ReportController {
                                         && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
                 if (isSiteManager) {
                     java.util.List<com.izonehub.stores.store.Store> managedStores = storeRepo.findStoresForUser(user.getId());
-                    java.util.List<String> allowedStoreNames = new java.util.ArrayList<>(managedStores.stream().map(com.izonehub.stores.store.Store::getName).toList());
-                    
-                    if (storeId != null) {
-                        com.izonehub.stores.store.Store queriedStore = storeRepo.findById(storeId).orElse(null);
-                        if (queriedStore != null && queriedStore.getType() == com.izonehub.stores.store.StoreType.CENTRAL) {
-                            allowedStoreNames.add(queriedStore.getName());
-                        }
-                    }
-                    
+                    java.util.List<String> allowedStoreNames = managedStores.stream().map(com.izonehub.stores.store.Store::getName).toList();
                     rows = rows.stream().filter(r -> allowedStoreNames.contains(r.storeName())).toList();
                 }
             }
