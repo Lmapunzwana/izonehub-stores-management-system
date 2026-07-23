@@ -13,6 +13,6 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
     boolean existsByType(StoreType type);
     java.util.List<Store> findByManager_Id(UUID managerId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s FROM Store s WHERE s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL)")
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s FROM Store s WHERE s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM com.izonehub.stores.user.AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL) OR s.id IN (SELECT p.siteStore.id FROM com.izonehub.stores.project.Project p JOIN p.assignedEmployees emp WHERE emp.id = :userId) OR s.id IN (SELECT mr.requestingStore.id FROM com.izonehub.stores.movement.MaterialRequest mr WHERE mr.raisedBy.id = :userId)")
     java.util.List<Store> findStoresForUser(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

@@ -12,14 +12,16 @@ export default function ConsumptionPage() {
   const [search, setSearch] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
 
-  // Initialize selectedStoreId if it's not set
+  const siteStores = stores.filter(s => s.type === "SITE" && s.active);
+
+  // Auto-select site store if selectedStoreId is empty or not a site store
   useEffect(() => {
-    if (!selectedStoreId && defaultStoreId) {
+    if ((!selectedStoreId || !siteStores.some(s => s.id === selectedStoreId)) && siteStores.length > 0) {
+      setSelectedStoreId(siteStores[0].id);
+    } else if (!selectedStoreId && defaultStoreId) {
       setSelectedStoreId(defaultStoreId);
     }
-  }, [defaultStoreId, selectedStoreId]);
-
-  const siteStores = stores.filter(s => s.type === "SITE" && s.active);
+  }, [siteStores, selectedStoreId, defaultStoreId]);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);

@@ -59,7 +59,7 @@ public class ReportController {
                                         && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                         && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
                 if (isSiteManager) {
-                    java.util.List<com.izonehub.stores.store.Store> managedStores = storeRepo.findByManager_Id(user.getId());
+                    java.util.List<com.izonehub.stores.store.Store> managedStores = storeRepo.findStoresForUser(user.getId());
                     java.util.List<String> allowedStoreNames = new java.util.ArrayList<>(managedStores.stream().map(com.izonehub.stores.store.Store::getName).toList());
                     
                     if (storeId != null) {

@@ -46,24 +46,6 @@ public class ItemController {
 
         ItemCategory categoryEnum = category == null ? null : ItemCategory.valueOf(category.toUpperCase());
         
-        if (email != null) {
-            com.izonehub.stores.user.AppUser user = users.findByEmail(email).orElse(null);
-            if (user != null) {
-                boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER) 
-                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
-                                        && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
-                if (isSiteManager) {
-                    java.util.List<com.izonehub.stores.store.Store> managedStores = stores.findByManager_Id(user.getId());
-                    if (!managedStores.isEmpty()) {
-                        java.util.List<UUID> storeIds = managedStores.stream().map(com.izonehub.stores.store.Store::getId).toList();
-                        return repo.searchWithStoreFilter(active, search == null ? "" : search, categoryEnum, storeIds, PageRequest.of(page, size));
-                    } else {
-                        return Page.empty();
-                    }
-                }
-            }
-        }
-        
         return repo.search(active, search == null ? "" : search, categoryEnum, PageRequest.of(page, size));
     }
 

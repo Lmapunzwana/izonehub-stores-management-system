@@ -528,6 +528,7 @@ export function AppDataProvider({ children }) {
       ]);
       setMaterialRequests(asList(updated).map(mapMaterialRequest));
       setDiscrepancies(asList(updatedDiscrepancies));
+      await refreshItems();
     } catch (e) {
       console.error(e);
     }
