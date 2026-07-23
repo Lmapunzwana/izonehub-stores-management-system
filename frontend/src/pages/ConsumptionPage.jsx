@@ -12,19 +12,13 @@ export default function ConsumptionPage() {
   const [search, setSearch] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
 
-  const siteStores = useMemo(() => {
-    const sites = stores.filter(s => s.type === "SITE" && s.active);
-    return sites.length > 0 ? sites : stores.filter(s => s.active);
-  }, [stores]);
+  const siteStores = useMemo(() => stores.filter(s => s.type === "SITE" && s.active), [stores]);
 
-  // Auto-select site store if selectedStoreId is empty or not in siteStores
   useEffect(() => {
     if ((!selectedStoreId || !siteStores.some(s => s.id === selectedStoreId)) && siteStores.length > 0) {
       setSelectedStoreId(siteStores[0].id);
-    } else if (!selectedStoreId && defaultStoreId) {
-      setSelectedStoreId(defaultStoreId);
     }
-  }, [siteStores, selectedStoreId, defaultStoreId]);
+  }, [siteStores, selectedStoreId]);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
@@ -45,7 +39,7 @@ export default function ConsumptionPage() {
         const rows = Array.isArray(res) ? res : res?.content || [];
         const stockMap = {};
         rows.forEach(r => {
-          stockMap[r.itemCode] = Number(r.onHand || 0) - Number(r.reserved || 0);
+          stockMap[r.itemCode] = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
         });
         setSiteStock(stockMap);
       })
@@ -71,7 +65,7 @@ export default function ConsumptionPage() {
       return;
     }
     if (qty > consumeItem.available) {
-      showAlert({ title: "Insufficient Stock", message: `Cannot consume more than ${consumeItem.available} available units.`, type: "danger" });
+      showAlert({ title: "Insufficient Stock", message: `Cannot consume more than ${consumeItem.available} available units at this store.`, type: "danger" });
       return;
     }
     try {
@@ -91,7 +85,7 @@ export default function ConsumptionPage() {
           const rows = Array.isArray(res) ? res : res?.content || [];
           const stockMap = {};
           rows.forEach(r => {
-            stockMap[r.itemCode] = Number(r.onHand || 0) - Number(r.reserved || 0);
+            stockMap[r.itemCode] = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
           });
           setSiteStock(stockMap);
         })
@@ -106,9 +100,9 @@ export default function ConsumptionPage() {
   }
 
   const visibleItems = useMemo(() => {
-    // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE
+    // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE STORE
     return items
-      .map(i => ({ ...i, available: siteStock[i.code] !== undefined ? siteStock[i.code] : (i.available || 0) }))
+      .map(i => ({ ...i, available: siteStock[i.code] || 0 }))
       .filter((i) => {
         const hasStock = i.available > 0;
         const matchesSearch =
