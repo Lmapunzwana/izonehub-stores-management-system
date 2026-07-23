@@ -15,6 +15,7 @@ function sourceRef(d) {
   if (d.grn) return `GRN ${d.grn.referenceNumber || d.grn.id?.substring(0, 8).toUpperCase()}`;
   if (d.receipt) return `MIV — ${d.receipt.materialRequest?.sourceStore?.name || "Dispatch"}`;
   if (d.stockReturn) return `Return RT-${d.stockReturn.id.substring(0, 8).toUpperCase()}`;
+  if (d.stockCount) return `Stock Count SC-${d.stockCount.id?.substring(0, 8).toUpperCase()}${d.stockCount.store?.name ? ` (${d.stockCount.store.name})` : ""}`;
   return "—";
 }
 

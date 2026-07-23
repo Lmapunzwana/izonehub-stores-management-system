@@ -6,13 +6,16 @@ import com.izonehub.stores.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,16 +33,32 @@ public class ProjectController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public Page<Project> list(@RequestParam(defaultValue = "0")    int page,
                               @RequestParam(defaultValue = "50")   int size,
                               @RequestParam(defaultValue = "true") boolean active) {
-        return projects.findByActive(active, PageRequest.of(page, size));
+        var projectPage = projects.findByActive(active, PageRequest.of(page, size));
+        projectPage.forEach(this::resolveLazy);
+        return projectPage;
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public Project get(@PathVariable UUID id) {
-        return projects.findById(id)
+        Project p = projects.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        resolveLazy(p);
+        return p;
+    }
+
+    /** Force-initialize lazy associations needed by the JSON serializer. */
+    private void resolveLazy(Project p) {
+        if (p.getSiteStore() != null) {
+            p.getSiteStore().getName();
+            if (p.getSiteStore().getManager() != null) {
+                p.getSiteStore().getManager().getFullName();
+            }
+        }
     }
 
     @PostMapping

@@ -36,7 +36,11 @@ function mapMaterialRequest(r) {
     id: r.id,
     requestNo: r.referenceNumber || r.id.substring(0, 8).toUpperCase(),
     project: r.project?.name || r.project?.code || "Unknown Project",
+    projectCode: r.project?.code || "",
     requestedBy: r.raisedBy?.fullName || "Unknown",
+    requestingStore: r.requestingStore?.name || "—",
+    requestingStoreId: r.requestingStore?.id || null,
+    sourceStore: r.sourceStore?.name || "—",
     status: MATERIAL_REQUEST_STATUS_LABEL[r.status] || r.status,
     // A request can carry multiple item lines; this is a display summary,
     // not a single flat item/quantity (which the entity doesn't have).
@@ -313,9 +317,11 @@ export function AppDataProvider({ children }) {
             id: p.id,
             code: p.code,
             name: p.name,
-            manager: p.siteStore?.manager?.fullName || (p.assignedEmployees?.length > 0 ? p.assignedEmployees[0].fullName : "Unassigned"),
+            // Manager is the manager of the site store associated with the project.
+            // The Project entity has no dedicated manager field.
+            manager: p.siteStore?.manager?.fullName || "—",
             budget: p.budgetCeiling != null ? p.budgetCeiling : 100000,
-            spent: 0, // Project entity doesn't track spend directly; not fabricated further than that.
+            spent: 0,
             status: p.active ? "Active" : "Completed",
             original: p,
           }))
@@ -458,15 +464,19 @@ export function AppDataProvider({ children }) {
     }
   }
 
-  async function approveRequest(id) {
+  async function approveRequest(id, quantities) {
     try {
       const req = materialRequests.find((r) => r.requestNo === id || r.id === id);
       const uuid = req ? req.id : id;
-      await apiFetch(`/api/material-requests/${uuid}/approve`, { method: "POST" });
+      // If per-line quantities were provided (from the approval modal), send them;
+      // otherwise send no body and the backend defaults to the full requested quantities.
+      const body = quantities && quantities.length ? { quantities } : undefined;
+      await apiFetch(`/api/material-requests/${uuid}/approve`, { method: "POST", body });
       const updated = await apiFetch("/api/material-requests");
       setMaterialRequests(asList(updated).map(mapMaterialRequest));
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 

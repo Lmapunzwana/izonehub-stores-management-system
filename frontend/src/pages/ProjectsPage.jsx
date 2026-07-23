@@ -160,7 +160,7 @@ export default function ProjectsPage() {
                     </Badge>
                   )}
                 </td>
-                <td>{p.manager || p.original?.siteStore?.manager?.fullName || "—"}</td>
+                <td>{p.manager || "—"}</td>
                 <td>
                   <Badge type={p.status === "Active" ? "success" : "default"}>{p.status}</Badge>
                 </td>

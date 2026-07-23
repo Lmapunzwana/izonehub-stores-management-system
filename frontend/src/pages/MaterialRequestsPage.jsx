@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Check, X } from "lucide-react";
+import { Plus, Check, X, ChevronDown } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
@@ -30,6 +30,9 @@ export default function MaterialRequestsPage() {
   const [busyId, setBusyId] = useState(null);
   const [viewItemsModal, setViewItemsModal] = useState(null);
 
+  // Per-item approval modal state
+  const [approveModal, setApproveModal] = useState(null); // { request, quantities: [{...line, approvedQty}] }
+
   // Site manager only sees requests from their projects
   const visibleRequests = (isCentral || isAdmin)
     ? materialRequests
@@ -38,10 +41,25 @@ export default function MaterialRequestsPage() {
         r.original?.requestingStore?.id === user?.assignedStoreId
       );
 
-  async function onApprove(r) {
-    setBusyId(r.id);
+  // Open per-item approval modal
+  function openApproveModal(r) {
+    const quantities = (r.lines || []).map(l => ({
+      ...l,
+      approvedQty: String(l.requested ?? ""),
+    }));
+    setApproveModal({ request: r, quantities });
+  }
+
+  async function onConfirmApprove() {
+    if (!approveModal) return;
+    const quantities = approveModal.quantities.map(l => {
+      const v = Number(l.approvedQty);
+      return isNaN(v) ? 0 : Math.max(0, v);
+    });
+    setBusyId(approveModal.request.id);
     try {
-      await approveRequest(r.id);
+      await approveRequest(approveModal.request.id, quantities);
+      setApproveModal(null);
     } catch (e) {
       showAlert({ title: "Error", message: e?.message || "Failed to approve request.", type: "danger" });
     } finally {
@@ -64,11 +82,6 @@ export default function MaterialRequestsPage() {
     } finally {
       setBusyId(null);
     }
-  }
-
-  function linesSummary(r) {
-    if (!r.lines || r.lines.length === 0) return "—";
-    return r.lines.map(l => `${l.item} × ${l.requested}`).join(", ");
   }
 
   const actions = [];
@@ -95,6 +108,7 @@ export default function MaterialRequestsPage() {
             <tr>
               <th>Request No</th>
               <th>Project</th>
+              <th>Requesting Store</th>
               <th>Items</th>
               <th>Requested By</th>
               <th>Status</th>
@@ -105,7 +119,13 @@ export default function MaterialRequestsPage() {
             {visibleRequests.map((r) => (
               <tr key={r.requestNo}>
                 <td style={{ fontWeight: 600 }}>{r.requestNo}</td>
-                <td>{r.project}</td>
+                <td>
+                  <div style={{ fontWeight: 500 }}>{r.project}</div>
+                  {r.projectCode && (
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{r.projectCode}</div>
+                  )}
+                </td>
+                <td style={{ fontSize: 13, color: "#475569" }}>{r.requestingStore}</td>
                 <td>
                   <button className="ch-btn ch-btn--outline" onClick={() => setViewItemsModal(r)} style={{ padding: "4px 8px", fontSize: 12 }}>
                     View Items ({r.lines?.length || 0})
@@ -114,6 +134,9 @@ export default function MaterialRequestsPage() {
                 <td style={{ fontSize: 13 }}>{r.requestedBy}</td>
                 <td>
                   <Badge type={STATUS_TYPE[r.status] || "default"}>{r.status}</Badge>
+                  {r.original?.rejectionReason && (
+                    <div style={{ fontSize: 11, color: "#dc2626", marginTop: 2 }}>{r.original.rejectionReason}</div>
+                  )}
                 </td>
                 <td>
                   {r.status === "Pending Approval" && (isCentral || isAdmin) ? (
@@ -122,10 +145,11 @@ export default function MaterialRequestsPage() {
                         type="button"
                         className="ch-btn ch-btn--success"
                         disabled={busyId === r.id}
-                        onClick={() => onApprove(r)}
+                        onClick={() => openApproveModal(r)}
                       >
                         <Check size={16} />
-                        {busyId === r.id ? "Approving…" : "Approve"}
+                        Approve
+                        <ChevronDown size={13} style={{ marginLeft: 2 }} />
                       </button>
                       <button
                         type="button"
@@ -153,7 +177,7 @@ export default function MaterialRequestsPage() {
             ))}
             {visibleRequests.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "#64748b", padding: "24px 0" }}>
+                <td colSpan={7} style={{ textAlign: "center", color: "#64748b", padding: "24px 0" }}>
                   No material requests found.
                 </td>
               </tr>
@@ -161,6 +185,69 @@ export default function MaterialRequestsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Per-item Approval Modal */}
+      {approveModal && (
+        <div className="app-modal-backdrop">
+          <div className="app-modal" style={{ maxWidth: 620, padding: 28, textAlign: "left" }}>
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Approve Request #{approveModal.request.requestNo}</h3>
+            <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+              Review and adjust quantities per item. Set to <strong>0</strong> to exclude an item. Other lines will still be approved.
+            </p>
+            <div style={{ maxHeight: 340, overflowY: "auto", marginBottom: 20 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>UOM</th>
+                    <th style={{ textAlign: "right" }}>Requested</th>
+                    <th style={{ textAlign: "right" }}>Approve Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approveModal.quantities.map((l, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 500 }}>{l.item}</td>
+                      <td style={{ color: "#64748b", fontSize: 13 }}>{l.uom || "—"}</td>
+                      <td style={{ textAlign: "right", color: "#475569" }}>{l.requested}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <input
+                          type="number"
+                          className="input"
+                          min="0"
+                          max={l.requested}
+                          style={{ width: 90, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
+                          value={l.approvedQty}
+                          onChange={e => {
+                            const updated = [...approveModal.quantities];
+                            updated[idx] = { ...updated[idx], approvedQty: e.target.value };
+                            setApproveModal(a => ({ ...a, quantities: updated }));
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
+              Items set to 0 will not be issued. The remainder of the request will proceed as approved.
+            </div>
+            <div className="modal-actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="btn btn-outline" onClick={() => setApproveModal(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={busyId === approveModal.request.id}
+                onClick={onConfirmApprove}
+              >
+                {busyId === approveModal.request.id ? "Approving…" : "Confirm Approval"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject reason modal */}
       {rejectModalId && (
@@ -198,9 +285,14 @@ export default function MaterialRequestsPage() {
       {/* View Items modal */}
       {viewItemsModal && (
         <div className="app-modal-backdrop">
-          <div className="app-modal" style={{ maxWidth: 600, padding: 28, textAlign: "left" }}>
-            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Items for Request #{viewItemsModal.requestNo}</h3>
-            <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
+          <div className="app-modal" style={{ maxWidth: 640, padding: 28, textAlign: "left" }}>
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Items for Request #{viewItemsModal.requestNo}</h3>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+              Project: <strong>{viewItemsModal.project}</strong> &nbsp;|&nbsp;
+              Store: <strong>{viewItemsModal.requestingStore}</strong> &nbsp;|&nbsp;
+              Requested By: <strong>{viewItemsModal.requestedBy}</strong>
+            </div>
+            <div style={{ maxHeight: "400px", overflowY: "auto", marginBottom: "20px" }}>
               <table className="table">
                 <thead>
                   <tr>

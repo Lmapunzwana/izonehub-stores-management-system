@@ -1,6 +1,7 @@
 package com.izonehub.stores.movement;
 
 import com.izonehub.stores.common.BaseEntity;
+import com.izonehub.stores.count.StockCount;
 import com.izonehub.stores.item.Item;
 import com.izonehub.stores.user.AppUser;
 import com.izonehub.stores.receipt.GoodsReceivedNote;
@@ -19,6 +20,9 @@ public class Discrepancy extends BaseEntity {
 
     @ManyToOne(optional = true, fetch = FetchType.LAZY)
     private StockReturn stockReturn;
+
+    @ManyToOne(optional = true, fetch = FetchType.LAZY)
+    private StockCount stockCount;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Item item;
@@ -74,9 +78,20 @@ public class Discrepancy extends BaseEntity {
         this.frozenQuantity = expectedQuantity.subtract(receivedQuantity).abs();
     }
 
+    /** Constructor for stock-count variance discrepancies. No receipt/GRN/return link. */
+    public Discrepancy(StockCount stockCount, Item item, BigDecimal systemQuantity, BigDecimal physicalQuantity) {
+        if (stockCount == null) throw new IllegalArgumentException("StockCount cannot be null");
+        this.stockCount = stockCount;
+        this.item = item;
+        this.dispatchedQuantity = systemQuantity;  // "expected" = system snapshot
+        this.receivedQuantity   = physicalQuantity; // "actual" = physical count
+        this.frozenQuantity = systemQuantity.subtract(physicalQuantity).abs();
+    }
+
     public Receipt getReceipt() { return receipt; }
     public GoodsReceivedNote getGrn() { return grn; }
     public StockReturn getStockReturn() { return stockReturn; }
+    public StockCount getStockCount() { return stockCount; }
     public Item getItem() { return item; }
     public BigDecimal getDispatchedQuantity() { return dispatchedQuantity; }
     public BigDecimal getReceivedQuantity() { return receivedQuantity; }

@@ -66,6 +66,7 @@ public class MaterialRequestController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<MaterialRequest> list(@RequestParam(defaultValue = "0")  int page,
                                       @RequestParam(defaultValue = "20") int size,
@@ -87,24 +88,50 @@ public class MaterialRequestController {
             storeIds = managedStores.stream().map(Store::getId).toList();
         }
 
+        Page<MaterialRequest> result;
         if (status != null) {
             MaterialRequestStatus reqStatus = MaterialRequestStatus.valueOf(status.toUpperCase());
             if (storeIds != null) {
-                return requests.findByStatusAndRequestingStore_IdIn(reqStatus, storeIds, pageable);
+                result = requests.findByStatusAndRequestingStore_IdIn(reqStatus, storeIds, pageable);
+            } else {
+                result = requests.findByStatus(reqStatus, pageable);
             }
-            return requests.findByStatus(reqStatus, pageable);
+        } else if (storeIds != null) {
+            result = requests.findByRequestingStore_IdIn(storeIds, pageable);
+        } else {
+            result = requests.findAll(pageable);
         }
-        
-        if (storeIds != null) {
-            return requests.findByRequestingStore_IdIn(storeIds, pageable);
-        }
-        return requests.findAll(pageable);
+
+        result.forEach(this::resolveLazy);
+        return result;
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public MaterialRequest get(@PathVariable UUID id) {
-        return requests.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        MaterialRequest mr = requests.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        resolveLazy(mr);
+        return mr;
+    }
+
+    private void resolveLazy(MaterialRequest mr) {
+        if (mr.getRequestingStore() != null) mr.getRequestingStore().getName();
+        if (mr.getSourceStore() != null) mr.getSourceStore().getName();
+        if (mr.getProject() != null) {
+            mr.getProject().getName();
+            mr.getProject().getCode();
+        }
+        if (mr.getRaisedBy() != null) mr.getRaisedBy().getFullName();
+        if (mr.getApprovedBy() != null) mr.getApprovedBy().getFullName();
+        if (mr.getLines() != null) {
+            mr.getLines().forEach(l -> {
+                if (l != null && l.getItem() != null) {
+                    l.getItem().getName();
+                    l.getItem().getUnitOfMeasure();
+                }
+            });
+        }
     }
 
     @PostMapping

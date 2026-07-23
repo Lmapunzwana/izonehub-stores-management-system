@@ -64,6 +64,9 @@ public class DiscrepancyController {
             d.getGrn().getReferenceNumber();
         } else if (d.getStockReturn() != null) {
             d.getStockReturn().getId();
+        } else if (d.getStockCount() != null) {
+            d.getStockCount().getId();
+            if (d.getStockCount().getStore() != null) d.getStockCount().getStore().getName();
         }
         if (d.getResolvedBy() != null) d.getResolvedBy().getFullName();
     }
@@ -89,8 +92,10 @@ public class DiscrepancyController {
             store = discrepancy.getReceipt().getMaterialRequest().getSourceStore();
         } else if (discrepancy.getGrn() != null) {
             store = discrepancy.getGrn().getExpectedReceipt().getStore();
+        } else if (discrepancy.getStockCount() != null) {
+            store = discrepancy.getStockCount().getStore();
         } else {
-            store = discrepancy.getStockReturn().getStore(); // Central Store confirming the return
+            store = discrepancy.getStockReturn().getStore();
         }
 
         inventory.releaseFrozen(

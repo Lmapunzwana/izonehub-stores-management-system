@@ -37,10 +37,13 @@ public class StockCountController {
     private final StockAdjustmentCommandService adjustments;
     private final AuditLogService auditLog;
     private final com.izonehub.stores.reporting.StockCountPdfService pdfService;
+    private final com.izonehub.stores.movement.DiscrepancyRepository discrepancyRepo;
+    private final com.izonehub.stores.movement.DiscrepancyStatus discrepancyOpenStatus = com.izonehub.stores.movement.DiscrepancyStatus.OPEN;
 
     public StockCountController(StockCountRepository counts, StoreRepository stores, UserRepository users,
                                 StockCountCommandService svc, StockAdjustmentCommandService adjustments,
-                                AuditLogService auditLog, com.izonehub.stores.reporting.StockCountPdfService pdfService) {
+                                AuditLogService auditLog, com.izonehub.stores.reporting.StockCountPdfService pdfService,
+                                com.izonehub.stores.movement.DiscrepancyRepository discrepancyRepo) {
         this.counts = counts;
         this.stores = stores;
         this.users = users;
@@ -48,6 +51,7 @@ public class StockCountController {
         this.adjustments = adjustments;
         this.auditLog = auditLog;
         this.pdfService = pdfService;
+        this.discrepancyRepo = discrepancyRepo;
     }
 
     @GetMapping
@@ -135,6 +139,28 @@ public class StockCountController {
         count.completeIfResolved();
         StockCount saved = counts.save(count);
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // Auto-create a Discrepancy when this line has a non-zero variance.
+        // Skip if a stock-count discrepancy already exists for this item on this count
+        // (prevents duplicates when re-entering a count for the same line).
+        java.math.BigDecimal variance = line.getVarianceQuantity();
+        if (variance != null && variance.compareTo(java.math.BigDecimal.ZERO) != 0) {
+            boolean alreadyExists = discrepancyRepo.findAll().stream()
+                    .anyMatch(d -> d.getStockCount() != null
+                            && d.getStockCount().getId().equals(saved.getId())
+                            && d.getItem().getId().equals(line.getItem().getId())
+                            && d.getStatus() == com.izonehub.stores.movement.DiscrepancyStatus.OPEN);
+            if (!alreadyExists) {
+                discrepancyRepo.save(new com.izonehub.stores.movement.Discrepancy(
+                        saved, line.getItem(),
+                        line.getSystemQuantitySnapshot(), line.getPhysicalQuantity()));
+                auditLog.record("DISCREPANCY", saved.getId().toString(), "STOCK_COUNT_VARIANCE",
+                        "Variance of " + variance + " detected for item '" + line.getItem().getName()
+                                + "' during stock count at store '" + saved.getStore().getName() + "'. Discrepancy raised automatically.",
+                        email);
+            }
+        }
+
         auditLog.record("STOCK_COUNT", saved.getId().toString(), "COUNT_ENTERED",
                 "Entered physical count of " + req.physicalQuantity() + " for item '" + line.getItem().getName() + "'",
                 email);
