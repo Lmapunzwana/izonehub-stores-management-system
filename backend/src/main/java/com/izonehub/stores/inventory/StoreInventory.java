@@ -127,13 +127,13 @@ public class StoreInventory extends BaseEntity {
 
     /**
      * Confirm transit arrival: remove from in-transit, add to on-hand.
-     * Called per-line when a material request is received with no variance.
-     */
     public void receiveFromTransit(BigDecimal qty) {
         requirePositive(qty);
-        if (quantityInTransit.compareTo(qty) < 0) throw new IllegalStateException("Insufficient in-transit stock");
-        quantityInTransit = quantityInTransit.subtract(qty);
-        quantityOnHand = quantityOnHand.add(qty);
+        if (quantityInTransit.compareTo(qty) >= 0) {
+            quantityInTransit = quantityInTransit.subtract(qty);
+        } else {
+            quantityInTransit = BigDecimal.ZERO;
+        }
         touch();
     }
 

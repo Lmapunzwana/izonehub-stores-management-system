@@ -44,6 +44,9 @@ export default function ConsumptionPage() {
         rows.forEach(r => {
           const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
           if (r.itemCode) stockMap[r.itemCode] = avail;
+          if (r.itemCode) stockMap[r.itemCode.toLowerCase()] = avail;
+          if (r.itemName) stockMap[r.itemName] = avail;
+          if (r.itemName) stockMap[r.itemName.toLowerCase()] = avail;
           if (r.itemId) stockMap[r.itemId] = avail;
         });
         setSiteStock(stockMap);
@@ -92,6 +95,9 @@ export default function ConsumptionPage() {
           rows.forEach(r => {
             const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
             if (r.itemCode) stockMap[r.itemCode] = avail;
+            if (r.itemCode) stockMap[r.itemCode.toLowerCase()] = avail;
+            if (r.itemName) stockMap[r.itemName] = avail;
+            if (r.itemName) stockMap[r.itemName.toLowerCase()] = avail;
             if (r.itemId) stockMap[r.itemId] = avail;
           });
           setSiteStock(stockMap);
@@ -107,19 +113,17 @@ export default function ConsumptionPage() {
   }
 
   const visibleItems = useMemo(() => {
-    // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE STORE
     return items
       .map(i => {
-        const avail = (siteStock[i.code] !== undefined ? siteStock[i.code] : siteStock[i.id]) || 0;
+        const avail = siteStock[i.code] ?? siteStock[i.code?.toLowerCase()] ?? siteStock[i.id] ?? siteStock[i.name] ?? siteStock[i.name?.toLowerCase()] ?? 0;
         return { ...i, available: avail };
       })
       .filter((i) => {
-        const hasStock = i.available > 0;
         const matchesSearch =
           !search ||
           i.name.toLowerCase().includes(search.toLowerCase()) ||
           i.code.toLowerCase().includes(search.toLowerCase());
-        return hasStock && matchesSearch;
+        return matchesSearch;
       });
   }, [items, search, siteStock]);
 
@@ -189,14 +193,16 @@ export default function ConsumptionPage() {
                 </td>
                 <td>{item.category ? item.category.replace(/_/g, " ") : "—"}</td>
                 <td>
-                  <Badge type="success">{item.available} {item.original?.unitOfMeasure || ""}</Badge>
+                  <Badge type={item.available > 0 ? "success" : "default"}>{item.available} {item.original?.unitOfMeasure || ""}</Badge>
                 </td>
                 <td>
                   <button
                     type="button"
                     className="ch-btn ch-btn--primary"
+                    disabled={item.available <= 0}
                     onClick={() => openConsumeModal(item)}
-                    title="Log item consumption"
+                    style={item.available <= 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    title={item.available <= 0 ? "No stock available at this store" : "Log item consumption"}
                   >
                     <Flame size={14} />
                     Consume
