@@ -79,25 +79,18 @@ public class MaterialRequestController {
                                 && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                 && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
         
-        java.util.List<UUID> storeIds = null;
-        if (isSiteManager) {
-            java.util.List<Store> managedStores = stores.findByManager_Id(user.getId());
-            if (managedStores.isEmpty()) {
-                return Page.empty();
-            }
-            storeIds = managedStores.stream().map(Store::getId).toList();
-        }
-
         Page<MaterialRequest> result;
-        if (status != null) {
-            MaterialRequestStatus reqStatus = MaterialRequestStatus.valueOf(status.toUpperCase());
-            if (storeIds != null) {
-                result = requests.findByStatusAndRequestingStore_IdIn(reqStatus, storeIds, pageable);
-            } else {
-                result = requests.findByStatus(reqStatus, pageable);
+        if (isSiteManager) {
+            java.util.List<Store> managedStores = stores.findStoresForUser(user.getId());
+            java.util.List<UUID> userStoreIds = managedStores.stream().map(Store::getId).toList();
+            if (userStoreIds.isEmpty()) {
+                userStoreIds = java.util.List.of(UUID.randomUUID());
             }
-        } else if (storeIds != null) {
-            result = requests.findByRequestingStore_IdIn(storeIds, pageable);
+            MaterialRequestStatus reqStatus = status != null ? MaterialRequestStatus.valueOf(status.toUpperCase()) : null;
+            result = requests.findForSiteManager(userStoreIds, user.getId(), reqStatus, pageable);
+        } else if (status != null) {
+            MaterialRequestStatus reqStatus = MaterialRequestStatus.valueOf(status.toUpperCase());
+            result = requests.findByStatus(reqStatus, pageable);
         } else {
             result = requests.findAll(pageable);
         }

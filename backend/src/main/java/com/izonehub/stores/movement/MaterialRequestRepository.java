@@ -32,4 +32,12 @@ public interface MaterialRequestRepository extends JpaRepository<MaterialRequest
 
     @EntityGraph(attributePaths = {"requestingStore", "sourceStore", "project", "lines", "lines.item"})
     Page<MaterialRequest> findByStatusAndRequestingStore_IdIn(MaterialRequestStatus status, java.util.List<UUID> requestingStoreIds, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"requestingStore", "sourceStore", "project", "lines", "lines.item"})
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT r FROM MaterialRequest r WHERE (r.requestingStore.id IN :storeIds OR r.sourceStore.id IN :storeIds OR r.raisedBy.id = :userId) AND (:status IS NULL OR r.status = :status)")
+    Page<MaterialRequest> findForSiteManager(
+            @org.springframework.data.repository.query.Param("storeIds") java.util.List<UUID> storeIds,
+            @org.springframework.data.repository.query.Param("userId") UUID userId,
+            @org.springframework.data.repository.query.Param("status") MaterialRequestStatus status,
+            Pageable pageable);
 }

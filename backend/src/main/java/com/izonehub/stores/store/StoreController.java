@@ -69,7 +69,7 @@ public class StoreController {
                                         && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                         && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
                 if (isSiteManager) {
-                    java.util.List<Store> managedStores = repo.findByManager_Id(user.getId());
+                    java.util.List<Store> managedStores = repo.findStoresForUser(user.getId());
                     java.util.List<Store> filtered = managedStores.stream()
                         .filter(s -> s.isActive() == active)
                         .toList();

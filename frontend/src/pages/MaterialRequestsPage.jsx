@@ -33,12 +33,16 @@ export default function MaterialRequestsPage() {
   // Per-item approval modal state
   const [approveModal, setApproveModal] = useState(null); // { request, quantities: [{...line, approvedQty}] }
 
-  // Site manager only sees requests from their projects
+  // Site manager sees requests raised by them or linked to their assigned/managed store
   const visibleRequests = (isCentral || isAdmin)
     ? materialRequests
     : materialRequests.filter(r =>
         r.original?.raisedBy?.id === user?.id ||
-        r.original?.requestingStore?.id === user?.assignedStoreId
+        r.original?.raisedBy?.email === user?.email ||
+        r.original?.requestingStore?.id === user?.assignedStoreId ||
+        r.original?.requestingStore?.manager?.id === user?.id ||
+        r.original?.sourceStore?.id === user?.assignedStoreId ||
+        r.original?.sourceStore?.manager?.id === user?.id
       );
 
   // Open per-item approval modal

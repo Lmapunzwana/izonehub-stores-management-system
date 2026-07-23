@@ -67,7 +67,7 @@ public class StockCountController {
                                     && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                     && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
             if (isSiteManager) {
-                java.util.List<Store> managedStores = stores.findByManager_Id(user.getId());
+                java.util.List<Store> managedStores = stores.findStoresForUser(user.getId());
                 if (managedStores.isEmpty()) {
                     return new PageImpl<>(java.util.List.of(), PageRequest.of(page, size), 0);
                 }
@@ -109,7 +109,7 @@ public class StockCountController {
                                 && !initiatedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                 && !initiatedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
         if (isSiteManager) {
-            java.util.List<Store> managedStores = stores.findByManager_Id(initiatedBy.getId());
+            java.util.List<Store> managedStores = stores.findStoresForUser(initiatedBy.getId());
             if (managedStores.stream().noneMatch(s -> s.getId().equals(store.getId()))) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this store");
             }

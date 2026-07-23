@@ -65,7 +65,7 @@ public class ReturnController {
                                     && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                     && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
             if (isSiteManager) {
-                java.util.List<Store> managedStores = storeRepo.findByManager_Id(user.getId());
+                java.util.List<Store> managedStores = storeRepo.findStoresForUser(user.getId());
                 if (managedStores.isEmpty()) {
                     return new PageImpl<>(List.of(), PageRequest.of(page, size), 0);
                 }
@@ -75,7 +75,7 @@ public class ReturnController {
         final java.util.List<UUID> finalStoreIds = storeIds;
 
         List<StockReturn> all = returns.findAll().stream()
-                .filter(r -> finalStoreIds == null || finalStoreIds.contains(r.getStore().getId()))
+                .filter(r -> finalStoreIds == null || finalStoreIds.contains(r.getStore().getId()) || (user != null && r.getReturnedBy() != null && r.getReturnedBy().getId().equals(user.getId())))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
         
@@ -102,7 +102,7 @@ public class ReturnController {
                                 && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                 && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
         if (isSiteManager) {
-            java.util.List<Store> managedStores = storeRepo.findByManager_Id(returnedBy.getId());
+            java.util.List<Store> managedStores = storeRepo.findStoresForUser(returnedBy.getId());
             if (managedStores.stream().noneMatch(s -> s.getId().equals(miv.getProject().getSiteStore().getId()))) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this store");
             }
