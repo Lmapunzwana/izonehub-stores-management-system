@@ -19,16 +19,12 @@ export default function ExpectedReceiptsPage() {
 
   const { expectedReceipts, addExpectedReceipt, advanceReceiptStatus, items, stores, defaultStoreId, user } = useAppData();
 
-  // Helper: look up UOM for the currently-selected item
-  const selectedItemObj = items.find(i => i.id === newReceipt.itemId);
-  const selectedItemUom = selectedItemObj?.original?.unitOfMeasure || "";
-
   const isCentralManager = user?.roles?.includes("CENTRAL_STORE_MANAGER");
   const isAdmin          = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
 
   // Central manager: locked to their assigned store.
   // Admin: can choose any CENTRAL store.
-  const centralStores  = stores.filter(s => s.type === "CENTRAL" && s.active);
+  const centralStores   = stores.filter(s => s.type === "CENTRAL" && s.active);
   const assignedStoreId = user?.assignedStoreId || defaultStoreId;
 
   const [showForm, setShowForm] = useState(!!lockedItemId);
@@ -39,6 +35,10 @@ export default function ExpectedReceiptsPage() {
     quantity: "",
     storeId: isCentralManager ? (assignedStoreId || "") : (centralStores[0]?.id || ""),
   });
+
+  // Helper: look up UOM for the currently-selected item
+  const selectedItemObj = items.find(i => i.id === newReceipt.itemId);
+  const selectedItemUom = selectedItemObj?.original?.unitOfMeasure || "";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
