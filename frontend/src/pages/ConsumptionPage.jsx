@@ -12,13 +12,16 @@ export default function ConsumptionPage() {
   const [search, setSearch] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
 
-  const siteStores = useMemo(() => stores.filter(s => s.type === "SITE" && s.active), [stores]);
+  const availableStores = useMemo(() => stores.filter(s => s.active && !s.closing), [stores]);
 
   useEffect(() => {
-    if ((!selectedStoreId || !siteStores.some(s => s.id === selectedStoreId)) && siteStores.length > 0) {
-      setSelectedStoreId(siteStores[0].id);
+    if ((!selectedStoreId || !availableStores.some(s => s.id === selectedStoreId)) && availableStores.length > 0) {
+      const siteStore = availableStores.find(s => s.type === "SITE") || availableStores[0];
+      setSelectedStoreId(siteStore.id);
+    } else if (!selectedStoreId && defaultStoreId) {
+      setSelectedStoreId(defaultStoreId);
     }
-  }, [siteStores, selectedStoreId]);
+  }, [availableStores, selectedStoreId, defaultStoreId]);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeItem, setConsumeItem] = useState(null);
@@ -39,7 +42,9 @@ export default function ConsumptionPage() {
         const rows = Array.isArray(res) ? res : res?.content || [];
         const stockMap = {};
         rows.forEach(r => {
-          stockMap[r.itemCode] = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
+          const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
+          if (r.itemCode) stockMap[r.itemCode] = avail;
+          if (r.itemId) stockMap[r.itemId] = avail;
         });
         setSiteStock(stockMap);
       })
@@ -85,7 +90,9 @@ export default function ConsumptionPage() {
           const rows = Array.isArray(res) ? res : res?.content || [];
           const stockMap = {};
           rows.forEach(r => {
-            stockMap[r.itemCode] = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
+            const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
+            if (r.itemCode) stockMap[r.itemCode] = avail;
+            if (r.itemId) stockMap[r.itemId] = avail;
           });
           setSiteStock(stockMap);
         })
@@ -102,7 +109,10 @@ export default function ConsumptionPage() {
   const visibleItems = useMemo(() => {
     // Only show items that have actual physical stock > 0 AT THIS SPECIFIC SITE STORE
     return items
-      .map(i => ({ ...i, available: siteStock[i.code] || 0 }))
+      .map(i => {
+        const avail = (siteStock[i.code] !== undefined ? siteStock[i.code] : siteStock[i.id]) || 0;
+        return { ...i, available: avail };
+      })
       .filter((i) => {
         const hasStock = i.available > 0;
         const matchesSearch =
@@ -124,15 +134,15 @@ export default function ConsumptionPage() {
         />
 
         <div className="filters" style={{ padding: "16px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "16px", alignItems: "center" }}>
-          <div style={{ minWidth: "250px" }}>
+          <div style={{ minWidth: "280px" }}>
             <select
               className="input"
               value={selectedStoreId || ""}
               onChange={(e) => setSelectedStoreId(e.target.value)}
             >
-              <option value="" disabled>Select Site Store...</option>
-              {siteStores.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              <option value="" disabled>Select Store...</option>
+              {availableStores.map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
               ))}
             </select>
           </div>
