@@ -127,6 +127,7 @@ public class StoreInventory extends BaseEntity {
 
     /**
      * Confirm transit arrival: remove from in-transit, add to on-hand.
+     */
     public void receiveFromTransit(BigDecimal qty) {
         requirePositive(qty);
         if (quantityInTransit.compareTo(qty) >= 0) {
