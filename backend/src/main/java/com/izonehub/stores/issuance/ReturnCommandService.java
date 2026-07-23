@@ -25,10 +25,12 @@ public class ReturnCommandService {
     @Transactional
     public StockReturn createPendingReturn(MaterialIssueVoucher miv, StockReturn stockReturn) {
         stockReturn.setStatus(ReturnStatus.PENDING_CONFIRMATION);
-        Store siteStore = miv.getProject().getSiteStore();
-        stockReturn.getLines().forEach(line -> {
-            if (line != null) inventory.dispatch(siteStore, line.getItem(), line.getQuantity());
-        });
+        Store siteStore = (miv != null && miv.getProject() != null) ? miv.getProject().getSiteStore() : stockReturn.getStore();
+        if (siteStore != null) {
+            stockReturn.getLines().forEach(line -> {
+                if (line != null) inventory.dispatch(siteStore, line.getItem(), line.getQuantity());
+            });
+        }
         return returns.save(stockReturn);
     }
 

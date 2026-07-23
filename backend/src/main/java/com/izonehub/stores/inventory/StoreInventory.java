@@ -70,7 +70,7 @@ public class StoreInventory extends BaseEntity {
     /** Consume stock (deduct from on-hand and add to consumed). */
     public void consume(BigDecimal qty) {
         requirePositive(qty);
-        if (getQuantityAvailable().compareTo(qty) < 0) throw new IllegalStateException("Insufficient available stock to consume");
+        if (quantityOnHand.compareTo(qty) < 0) throw new IllegalStateException("Insufficient available stock to consume");
         quantityOnHand = quantityOnHand.subtract(qty);
         quantityConsumed = quantityConsumed.add(qty);
         touch();

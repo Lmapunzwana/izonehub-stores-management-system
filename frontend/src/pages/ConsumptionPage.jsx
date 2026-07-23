@@ -12,9 +12,12 @@ export default function ConsumptionPage() {
   const [search, setSearch] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
 
-  const siteStores = stores.filter(s => s.type === "SITE" && s.active);
+  const siteStores = useMemo(() => {
+    const sites = stores.filter(s => s.type === "SITE" && s.active);
+    return sites.length > 0 ? sites : stores.filter(s => s.active);
+  }, [stores]);
 
-  // Auto-select site store if selectedStoreId is empty or not a site store
+  // Auto-select site store if selectedStoreId is empty or not in siteStores
   useEffect(() => {
     if ((!selectedStoreId || !siteStores.some(s => s.id === selectedStoreId)) && siteStores.length > 0) {
       setSelectedStoreId(siteStores[0].id);
