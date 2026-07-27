@@ -517,11 +517,12 @@ export function AppDataProvider({ children }) {
   }
 
   // receive() resolves the request to COMPLETED or DISCREPANCY.
-  async function markRequestReceived(id) {
+  async function markRequestReceived(id, quantities) {
     try {
       const req = materialRequests.find((r) => r.requestNo === id || r.id === id);
       const uuid = req ? req.id : id;
-      await apiFetch(`/api/material-requests/${uuid}/receive`, { method: "POST" });
+      const body = quantities ? { quantities: quantities.map(Number) } : null;
+      await apiFetch(`/api/material-requests/${uuid}/receive`, { method: "POST", body });
       const [updated, updatedDiscrepancies] = await Promise.all([
         apiFetch("/api/material-requests"),
         apiFetch("/api/discrepancies").catch(() => []),
@@ -531,15 +532,11 @@ export function AppDataProvider({ children }) {
       await refreshItems();
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 
   // --- Discrepancies ---
-  // POST /{id}/resolve requires { resolutionNotes, recovered }. "recovered"
-  // means the stock was actually found (returned to on-hand); otherwise it's
-  // a permanent write-off. There is no separate WRITTEN_OFF/RECOVERED
-  // DiscrepancyStatus — resolving always moves status to RESOLVED, and
-  // whether it was a recovery lives in resolutionNotes/the inventory ledger.
   async function resolveDiscrepancy(id, recovered, notes) {
     try {
       await apiFetch(`/api/discrepancies/${id}/resolve`, {
@@ -555,16 +552,22 @@ export function AppDataProvider({ children }) {
   }
 
   // --- Returns ---
-  async function confirmReturn(returnId) {
+  async function confirmReturn(returnId, confirmedLines) {
     try {
       const req = returnsList.find((r) => r.returnNo === returnId || r.id === returnId);
       const uuid = req ? req.id : returnId;
-      await apiFetch(`/api/returns/${uuid}/confirm`, { method: "POST" });
-      const updated = await apiFetch("/api/returns");
-      setReturnsList(asList(updated).map(mapReturn));
+      const body = confirmedLines ? { lines: confirmedLines } : { lines: [] };
+      await apiFetch(`/api/returns/${uuid}/confirm`, { method: "POST", body });
+      const [updatedReturns, updatedDiscrepancies] = await Promise.all([
+        apiFetch("/api/returns"),
+        apiFetch("/api/discrepancies").catch(() => []),
+      ]);
+      setReturnsList(asList(updatedReturns).map(mapReturn));
+      setDiscrepancies(asList(updatedDiscrepancies));
       await refreshItems();
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 

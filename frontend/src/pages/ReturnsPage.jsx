@@ -105,7 +105,6 @@ export default function ReturnsPage() {
       return;
     }
 
-    // Validate no line exceeds max returnable
     for (const l of returnLines) {
       if (l.quantity && Number(l.quantity) > l.maxReturn) {
         showAlert({
@@ -122,7 +121,6 @@ export default function ReturnsPage() {
       if (returnSource === "request" && selectedRequestId) {
         await initiateReturn(selectedRequestId, payloadLines);
       } else {
-        // Direct site inventory return to Central Store
         await apiFetch("/api/returns", {
           method: "POST",
           body: {
@@ -141,28 +139,42 @@ export default function ReturnsPage() {
     }
   }
 
-  // --- Central Manager: Confirm Return ---
-  const [confirmModal, setConfirmModal] = useState(null);
+  // --- Central Manager: Confirm Return Modal ---
+  const [confirmModal, setConfirmModal] = useState(null); // { return, lines }
   const [collectorName, setCollectorName] = useState("");
   const [confirming, setConfirming] = useState(false);
 
   function openConfirmModal(ret) {
-    setConfirmModal(ret);
+    const lines = ret.original?.lines || [];
+    setConfirmModal({
+      returnObj: ret,
+      lines: lines.map(l => ({
+        itemId: l.item?.id,
+        itemName: l.item?.name || "Item",
+        itemCode: l.item?.code || "",
+        expectedQty: Number(l.quantity || 0),
+        receivedQty: Number(l.quantity || 0),
+      }))
+    });
     setCollectorName("");
   }
 
   async function handleConfirmReturn(e) {
     e.preventDefault();
-    if (!collectorName.trim()) {
+    if (!collectorName.trim() || !confirmModal) {
       showAlert({ title: "Collector Required", message: "Please enter the handler's name.", type: "warning" });
       return;
     }
     setConfirming(true);
     try {
-      await confirmReturn(confirmModal.id);
+      const confirmedLines = confirmModal.lines.map(l => ({
+        itemId: l.itemId,
+        receivedQuantity: Number(l.receivedQty || 0),
+      }));
+      await confirmReturn(confirmModal.returnObj.id, confirmedLines);
       setConfirmModal(null);
       await refreshItems();
-      showAlert({ title: "Return Confirmed", message: `Stock return ${confirmModal.returnNo} confirmed and received at Central Store.`, type: "success" });
+      showAlert({ title: "Return Confirmed", message: `Stock return ${confirmModal.returnObj.returnNo} confirmed and received into Central Store.`, type: "success" });
     } catch (err) {
       showAlert({ title: "Error", message: "Failed to confirm return. " + (err?.message || ""), type: "danger" });
     } finally {
@@ -214,7 +226,7 @@ export default function ReturnsPage() {
                   {r.status === "Awaiting Confirmation" && (isCentral || isAdmin) ? (
                     <button className="ch-btn ch-btn--success" onClick={() => openConfirmModal(r)}>
                       <CheckCircle2 size={16} />
-                      Confirm Return
+                      Confirm Receipt
                     </button>
                   ) : (
                     <span style={{ color: "#64748b", fontSize: 13 }}>—</span>
@@ -363,25 +375,71 @@ export default function ReturnsPage() {
         </div>
       )}
 
-      {/* Central Manager: Confirm Return Modal */}
+      {/* Central Manager: Per-Line Confirm Return Modal */}
       {confirmModal && (
         <div className="app-modal-backdrop">
-          <div className="app-modal" style={{ maxWidth: 440, padding: 28, textAlign: "left" }}>
-            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Confirm Return — {confirmModal.returnNo}</h3>
+          <div className="app-modal" style={{ maxWidth: 620, padding: 28, textAlign: "left" }}>
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Confirm Receipt — {confirmModal.returnObj.returnNo}</h3>
             <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-              Physically receive the returned items back into Central Store inventory.
+              Inspect and enter the actual physical quantities received back at Central Store. Any variance from the expected return will automatically generate a discrepancy.
             </p>
             <form onSubmit={handleConfirmReturn}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontWeight: 500, marginBottom: 6 }}>Handler / Receiving Person Name</label>
+                <label style={{ display: "block", fontWeight: 500, marginBottom: 6 }}>Receiving Handler / Person Name</label>
                 <input
                   className="input"
-                  placeholder="Name of person receiving the return"
+                  placeholder="Name of person receiving return at Central Store"
                   value={collectorName}
                   onChange={e => setCollectorName(e.target.value)}
                   required
                   autoFocus
                 />
+              </div>
+
+              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 20 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th style={{ textAlign: "right" }}>Expected Return</th>
+                      <th style={{ textAlign: "right" }}>Actual Received Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confirmModal.lines.map((l, idx) => {
+                      const diff = Number(l.receivedQty) - Number(l.expectedQty);
+                      return (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 500 }}>
+                            {l.itemName}
+                            {l.itemCode && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 6 }}>({l.itemCode})</span>}
+                          </td>
+                          <td style={{ textAlign: "right", color: "#475569" }}>{l.expectedQty}</td>
+                          <td style={{ textAlign: "right" }}>
+                            <input
+                              type="number"
+                              className="input"
+                              min="0"
+                              step="any"
+                              style={{ width: 90, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
+                              value={l.receivedQty}
+                              onChange={e => {
+                                const updated = [...confirmModal.lines];
+                                updated[idx] = { ...updated[idx], receivedQty: e.target.value };
+                                setConfirmModal(c => ({ ...c, lines: updated }));
+                              }}
+                            />
+                            {diff !== 0 && (
+                              <div style={{ fontSize: 11, color: diff < 0 ? "#dc2626" : "#f59e0b", marginTop: 2 }}>
+                                {diff < 0 ? `Missing ${Math.abs(diff)}` : `Over +${diff}`} (Discrepancy)
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -390,7 +448,7 @@ export default function ReturnsPage() {
                 </button>
                 <button type="submit" className="btn btn-success" disabled={!collectorName.trim() || confirming}>
                   <CheckCircle2 size={16} />
-                  {confirming ? "Confirming…" : "Confirm Received"}
+                  {confirming ? "Confirming…" : "Confirm Receipt into Central Store"}
                 </button>
               </div>
             </form>
