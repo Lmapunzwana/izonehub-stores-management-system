@@ -37,8 +37,13 @@ public class SesEmailNotificationGateway implements EmailNotificationGateway {
 
     @Override
     public void send(AppUser user, String subject, String message) {
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
-            log.warn("Skipping email to user {} — no email address", user.getClass().getSimpleName());
+        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            log.warn("Skipping email to user — no email address");
+            return;
+        }
+        String recipient = user.getEmail().trim().toLowerCase();
+        if (recipient.contains("petronelah") || recipient.contains("newsaharaventures")) {
+            log.info("SES: email sending paused for recipient {}", user.getEmail());
             return;
         }
         try {

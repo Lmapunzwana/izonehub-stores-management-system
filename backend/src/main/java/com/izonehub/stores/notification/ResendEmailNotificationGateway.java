@@ -39,7 +39,7 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
 
     public ResendEmailNotificationGateway(
             @Value("${app.email.resend-api-key:}") String apiKey,
-            @Value("${app.email.from-address:noreply@example.com}") String fromAddress) {
+            @Value("${app.email.from-address:Notifications <notifications@mail.nsv.co.zw>}") String fromAddress) {
         this.apiKey      = apiKey;
         this.fromAddress = fromAddress;
         this.httpClient  = HttpClient.newBuilder()
@@ -51,6 +51,11 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
     public void send(AppUser user, String subject, String message) {
         if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
             log.warn("Resend: skipping email — recipient has no email address");
+            return;
+        }
+        String recipient = user.getEmail().trim().toLowerCase();
+        if (recipient.contains("petronelah") || recipient.contains("newsaharaventures")) {
+            log.info("Resend: email sending paused for recipient {}", user.getEmail());
             return;
         }
         if (apiKey == null || apiKey.isBlank()) {

@@ -30,14 +30,113 @@ public class InventoryQueryController {
     private final StoreRepository stores;
     private final UserRepository users;
 
+    private final InventoryCommandService inventoryCommandService;
+    private final com.izonehub.stores.audit.AuditLogService auditLog;
+
     public InventoryQueryController(InventoryRepository inventoryRepo, ExpectedReceiptRepository expectedReceipts,
-                                    ItemRepository items, StoreRepository stores, UserRepository users) {
+                                    ItemRepository items, StoreRepository stores, UserRepository users,
+                                    InventoryCommandService inventoryCommandService, com.izonehub.stores.audit.AuditLogService auditLog) {
         this.inventoryRepo = inventoryRepo;
         this.expectedReceipts = expectedReceipts;
         this.items = items;
         this.stores = stores;
         this.users = users;
+        this.inventoryCommandService = inventoryCommandService;
+        this.auditLog = auditLog;
     }
+
+    @GetMapping("/site-inventory")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
+    public List<SiteInventoryRow> getSiteInventory(@RequestParam(required = false) UUID storeId,
+                                                   @AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        List<Store> allowedStores = stores.findStoresForUser(user.getId());
+        List<UUID> allowedIds = allowedStores.stream().map(Store::getId).toList();
+        
+        List<StoreInventory> list = inventoryRepo.findAllEager().stream()
+                .filter(inv -> storeId == null ? allowedIds.contains(inv.getStore().getId()) : inv.getStore().getId().equals(storeId))
+                .toList();
+
+        return list.stream().map(inv -> new SiteInventoryRow(
+                inv.getId(),
+                inv.getStore().getId(),
+                inv.getStore().getName(),
+                inv.getItem().getId(),
+                inv.getItem().getCode(),
+                inv.getItem().getName(),
+                inv.getItem().getCategory() != null ? inv.getItem().getCategory().name() : null,
+                inv.getItem().getUnitOfMeasure(),
+                inv.getQuantityOnHand(),
+                inv.getQuantityReserved(),
+                inv.getQuantityInTransit(),
+                inv.getQuantityFrozen(),
+                inv.getQuantityDamaged(),
+                inv.getQuantityConsumed(),
+                inv.getQuantityAvailable(),
+                inv.getLastUpdated()
+        )).toList();
+    }
+
+    @PostMapping("/{inventoryId}/freeze")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
+    @org.springframework.transaction.annotation.Transactional
+    public StoreInventory freezeInventory(@PathVariable UUID inventoryId,
+                                          @RequestBody FreezeRequest req,
+                                          @AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        StoreInventory inv = inventoryRepo.findById(inventoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory row not found"));
+        
+        BigDecimal qty = (req.quantity() != null && req.quantity().compareTo(BigDecimal.ZERO) > 0) ? req.quantity() : inv.getQuantityOnHand();
+        if (req.freeze()) {
+            inventoryCommandService.freezeGrnVariance(inv.getStore(), inv.getItem(), qty);
+        } else {
+            inventoryCommandService.releaseFrozen(inv.getStore(), inv.getItem(), qty, true);
+        }
+        auditLog.record("INVENTORY", inv.getId().toString(), req.freeze() ? "FROZEN" : "UNFROZEN",
+                (req.freeze() ? "Froze " : "Unfroze ") + qty + " of " + inv.getItem().getName() + " at store " + inv.getStore().getName(),
+                email);
+        return inventoryRepo.findById(inventoryId).orElse(inv);
+    }
+
+    @PostMapping("/{inventoryId}/adjust")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
+    @org.springframework.transaction.annotation.Transactional
+    public StoreInventory adjustInventory(@PathVariable UUID inventoryId,
+                                         @RequestBody AdjustRequest req,
+                                         @AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        StoreInventory inv = inventoryRepo.findById(inventoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory row not found"));
+        
+        inventoryCommandService.adjustTo(inv.getStore(), inv.getItem(), req.newQuantity());
+        auditLog.record("INVENTORY", inv.getId().toString(), "ADJUSTED",
+                "Adjusted physical count of " + inv.getItem().getName() + " to " + req.newQuantity() + " at store " + inv.getStore().getName() + (req.reason() != null ? " — " + req.reason() : ""),
+                email);
+        return inventoryRepo.findById(inventoryId).orElse(inv);
+    }
+
+    public record FreezeRequest(Boolean freeze, BigDecimal quantity) {}
+    public record AdjustRequest(BigDecimal newQuantity, String reason) {}
+
+    public record SiteInventoryRow(
+            UUID id,
+            UUID storeId,
+            String storeName,
+            UUID itemId,
+            String itemCode,
+            String itemName,
+            String category,
+            String unitOfMeasure,
+            BigDecimal onHand,
+            BigDecimal reserved,
+            BigDecimal inTransit,
+            BigDecimal frozen,
+            BigDecimal damaged,
+            BigDecimal consumed,
+            BigDecimal available,
+            java.time.Instant lastUpdated
+    ) {}
 
     @GetMapping("/items/{itemId}/stock")
     public ItemStockResponse getStock(@PathVariable UUID itemId, @AuthenticationPrincipal String email) {
