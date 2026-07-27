@@ -3,11 +3,11 @@ import Badge from "../components/Badge";
 import CardHeader from "../components/CardHeader";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
-import { Package, Flame, Search, Calendar } from "lucide-react";
+import { Package, Flame, Search } from "lucide-react";
 import { apiFetch } from "../api";
 
 export default function ConsumptionPage() {
-  const { items, defaultStoreId, consumeItems, stores } = useAppData();
+  const { defaultStoreId, consumeItems, stores } = useAppData();
   const { showAlert } = useAppModal();
   const [search, setSearch] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
@@ -24,39 +24,33 @@ export default function ConsumptionPage() {
   }, [availableStores, selectedStoreId, defaultStoreId]);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consumeItem, setConsumeItem] = useState(null);
+  const [consumeInvRow, setConsumeInvRow] = useState(null);
   const [consumeQty, setConsumeQty] = useState("");
   const [consumeNote, setConsumeNote] = useState("");
-  // Default to today's date in YYYY-MM-DD format
   const [consumedAt, setConsumedAt] = useState(() => new Date().toISOString().slice(0, 10));
-  const [siteStock, setSiteStock] = useState({});
-  const [loadingStock, setLoadingStock] = useState(false);
+  
+  const [siteInventory, setSiteInventory] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Fetch stock specific to the current site store
-  useEffect(() => {
+  // Fetch site store physical inventory
+  const fetchSiteInventory = () => {
     if (!selectedStoreId) return;
-    setLoadingStock(true);
-    apiFetch(`/api/reports/current-stock?storeId=${selectedStoreId}`)
+    setLoading(true);
+    apiFetch(`/api/inventory/site-inventory?storeId=${selectedStoreId}`)
       .then((res) => {
-        const rows = Array.isArray(res) ? res : res?.content || [];
-        const stockMap = {};
-        rows.forEach(r => {
-          const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
-          if (r.itemCode) stockMap[r.itemCode] = avail;
-          if (r.itemCode) stockMap[r.itemCode.toLowerCase()] = avail;
-          if (r.itemName) stockMap[r.itemName] = avail;
-          if (r.itemName) stockMap[r.itemName.toLowerCase()] = avail;
-          if (r.itemId) stockMap[r.itemId] = avail;
-        });
-        setSiteStock(stockMap);
+        setSiteInventory(Array.isArray(res) ? res : []);
       })
-      .catch(err => console.error("Failed to fetch site stock:", err))
-      .finally(() => setLoadingStock(false));
+      .catch((err) => console.error("Failed to fetch site inventory:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchSiteInventory();
   }, [selectedStoreId]);
 
-  function openConsumeModal(item) {
-    setConsumeItem(item);
+  function openConsumeModal(invRow) {
+    setConsumeInvRow(invRow);
     setConsumeQty("");
     setConsumeNote("");
     setConsumedAt(new Date().toISOString().slice(0, 10));
@@ -65,45 +59,30 @@ export default function ConsumptionPage() {
 
   async function handleConsume(e) {
     e.preventDefault();
-    if (!consumeItem || !consumeQty || busy) return;
+    if (!consumeInvRow || !consumeQty || busy) return;
     setBusy(true);
     const qty = Number(consumeQty);
     if (isNaN(qty) || qty <= 0) {
       showAlert({ title: "Invalid Quantity", message: "Please enter a valid positive quantity.", type: "warning" });
+      setBusy(false);
       return;
     }
-    if (qty > consumeItem.available) {
-      showAlert({ title: "Insufficient Stock", message: `Cannot consume more than ${consumeItem.available} available units at this store.`, type: "danger" });
+    if (qty > consumeInvRow.available) {
+      showAlert({ title: "Insufficient Stock", message: `Cannot consume more than ${consumeInvRow.available} available units at this store.`, type: "danger" });
+      setBusy(false);
       return;
     }
     try {
       await consumeItems(selectedStoreId, [{
-        itemId: consumeItem.id,
+        itemId: consumeInvRow.itemId,
         quantity: qty,
         consumedAt,
         notes: consumeNote || null,
       }]);
       setConsumeModalOpen(false);
-      setConsumeItem(null);
-      showAlert({ title: "Success", message: `Successfully consumed ${qty} × ${consumeItem.name} on ${consumedAt}.`, type: "success" });
-
-      // Refresh site stock after consumption
-      apiFetch(`/api/reports/current-stock?storeId=${selectedStoreId}`)
-        .then((res) => {
-          const rows = Array.isArray(res) ? res : res?.content || [];
-          const stockMap = {};
-          rows.forEach(r => {
-            const avail = Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0));
-            if (r.itemCode) stockMap[r.itemCode] = avail;
-            if (r.itemCode) stockMap[r.itemCode.toLowerCase()] = avail;
-            if (r.itemName) stockMap[r.itemName] = avail;
-            if (r.itemName) stockMap[r.itemName.toLowerCase()] = avail;
-            if (r.itemId) stockMap[r.itemId] = avail;
-          });
-          setSiteStock(stockMap);
-        })
-        .catch(console.error);
-
+      setConsumeInvRow(null);
+      showAlert({ title: "Success", message: `Successfully logged consumption of ${qty} × ${consumeInvRow.itemName}.`, type: "success" });
+      fetchSiteInventory();
     } catch (err) {
       console.error(err);
       showAlert({ title: "Error", message: "Failed to consume item. " + (err?.message || "Unknown error"), type: "danger" });
@@ -112,29 +91,24 @@ export default function ConsumptionPage() {
     }
   }
 
-  const visibleItems = useMemo(() => {
-    return items
-      .map(i => {
-        const avail = siteStock[i.code] ?? siteStock[i.code?.toLowerCase()] ?? siteStock[i.id] ?? siteStock[i.name] ?? siteStock[i.name?.toLowerCase()] ?? 0;
-        return { ...i, available: avail };
-      })
-      .filter((i) => {
-        const matchesSearch =
-          !search ||
-          i.name.toLowerCase().includes(search.toLowerCase()) ||
-          i.code.toLowerCase().includes(search.toLowerCase());
-        return matchesSearch;
-      });
-  }, [items, search, siteStock]);
+  const visibleInventory = useMemo(() => {
+    return siteInventory.filter((inv) => {
+      const matchesSearch =
+        !search ||
+        inv.itemName.toLowerCase().includes(search.toLowerCase()) ||
+        inv.itemCode.toLowerCase().includes(search.toLowerCase());
+      return matchesSearch;
+    });
+  }, [siteInventory, search]);
 
   return (
     <div className="page">
       <div className="card">
         <CardHeader
-          title="Item Consumption"
-          badge={`${visibleItems.length} items available`}
+          title="Site Item Consumption"
+          badge={`${visibleInventory.length} site inventory records`}
           icon={<Flame size={20} />}
-          subtitle="Log items that have been utilized at this site. Select a date to record past consumption."
+          subtitle="Log utilization of physical items received at your site store."
         />
 
         <div className="filters" style={{ padding: "16px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "16px", alignItems: "center" }}>
@@ -144,7 +118,7 @@ export default function ConsumptionPage() {
               value={selectedStoreId || ""}
               onChange={(e) => setSelectedStoreId(e.target.value)}
             >
-              <option value="" disabled>Select Store...</option>
+              <option value="" disabled>Select Site Store...</option>
               {availableStores.map(s => (
                 <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
               ))}
@@ -154,7 +128,7 @@ export default function ConsumptionPage() {
             <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
             <input
               className="input"
-              placeholder="Search available items..."
+              placeholder="Search site stock items..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: 36, width: "100%" }}
@@ -162,9 +136,9 @@ export default function ConsumptionPage() {
           </div>
         </div>
 
-        {loadingStock && (
+        {loading && (
           <div style={{ padding: "12px 16px", fontSize: 13, color: "#64748b" }}>
-            Loading current stock levels…
+            Loading site store inventory…
           </div>
         )}
 
@@ -173,36 +147,40 @@ export default function ConsumptionPage() {
             <tr>
               <th>Item</th>
               <th>Category</th>
-              <th>Available (Physical)</th>
+              <th>On-Hand</th>
+              <th>Available</th>
+              <th>Consumed</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {visibleItems.map((item) => (
-              <tr key={item.code}>
+            {visibleInventory.map((inv) => (
+              <tr key={inv.id}>
                 <td>
                   <div className="item-cell">
                     <span className="item-icon">
                       <Package size={18} />
                     </span>
                     <div>
-                      <div className="item-name">{item.name}</div>
-                      <div className="item-code">{item.code}</div>
+                      <div className="item-name">{inv.itemName}</div>
+                      <div className="item-code">{inv.itemCode} • <span style={{ color: "#2563eb", fontWeight: 500 }}>{inv.storeName}</span></div>
                     </div>
                   </div>
                 </td>
-                <td>{item.category ? item.category.replace(/_/g, " ") : "—"}</td>
+                <td>{inv.category ? inv.category.replace(/_/g, " ") : "—"}</td>
+                <td style={{ fontWeight: 600 }}>{inv.onHand} {inv.unitOfMeasure || ""}</td>
                 <td>
-                  <Badge type={item.available > 0 ? "success" : "default"}>{item.available} {item.original?.unitOfMeasure || ""}</Badge>
+                  <Badge type={Number(inv.available) > 0 ? "success" : "default"}>{inv.available} {inv.unitOfMeasure || ""}</Badge>
                 </td>
+                <td style={{ color: "#475569" }}>{inv.consumed}</td>
                 <td>
                   <button
                     type="button"
                     className="ch-btn ch-btn--primary"
-                    disabled={item.available <= 0}
-                    onClick={() => openConsumeModal(item)}
-                    style={item.available <= 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                    title={item.available <= 0 ? "No stock available at this store" : "Log item consumption"}
+                    disabled={Number(inv.available) <= 0}
+                    onClick={() => openConsumeModal(inv)}
+                    style={Number(inv.available) <= 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    title={Number(inv.available) <= 0 ? "No available stock at this site store" : "Log item consumption"}
                   >
                     <Flame size={14} />
                     Consume
@@ -210,14 +188,14 @@ export default function ConsumptionPage() {
                 </td>
               </tr>
             ))}
-            {visibleItems.length === 0 && (
+            {visibleInventory.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ textAlign: "center", color: "#64748b", padding: "32px 16px" }}>
-                  {loadingStock
-                    ? "Loading…"
+                <td colSpan={6} style={{ textAlign: "center", color: "#64748b", padding: "32px 16px" }}>
+                  {loading
+                    ? "Loading site store inventory…"
                     : search
-                      ? "No items match your search."
-                      : "You currently have no physical stock available to consume. Receive requested items first."}
+                      ? "No site items match your search."
+                      : "No physical inventory found at this site store. Items will appear here once received on a Material Request."}
                 </td>
               </tr>
             )}
@@ -226,92 +204,59 @@ export default function ConsumptionPage() {
       </div>
 
       {/* Consume Modal */}
-      {consumeModalOpen && consumeItem && (
-        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh", overflowY: "auto" }}>
-          <div className="app-modal" style={{ maxWidth: 440, padding: 28, textAlign: "left" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <span style={{
-                width: 36, height: 36, borderRadius: 8,
-                background: "linear-gradient(135deg,#f59e0b,#ef4444)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <Flame size={18} color="#fff" />
-              </span>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16 }}>Consume {consumeItem.name}</h3>
-                <div style={{ fontSize: 12, color: "#94a3b8" }}>{consumeItem.code}</div>
-              </div>
-            </div>
-
-            <div style={{
-              background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6,
-              padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#15803d",
-            }}>
-              Available in physical inventory: <strong>{consumeItem.available} {consumeItem.original?.unitOfMeasure || ""}</strong>
-            </div>
-
+      {consumeModalOpen && consumeInvRow && (
+        <div className="app-modal-backdrop" style={{ alignItems: "flex-start", paddingTop: "5vh" }}>
+          <div className="app-modal" style={{ maxWidth: 420, padding: 24, textAlign: "left" }}>
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Consume {consumeInvRow.itemName}</h3>
+            <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+              Log stock usage for <strong>{consumeInvRow.storeName}</strong> ({consumeInvRow.itemCode}).
+            </p>
             <form onSubmit={handleConsume}>
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500, marginBottom: 6 }}>
-                  <Calendar size={14} />
-                  Consumption Date <span style={{ color: "#dc2626" }}>*</span>
-                </label>
-                <input
-                  type="date"
-                  className="input"
-                  required
-                  max={new Date().toISOString().slice(0, 10)}
-                  value={consumedAt}
-                  onChange={(e) => setConsumedAt(e.target.value)}
-                />
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                  Date when this material was actually used (can be a past date)
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 13 }}>Available Stock</label>
+                <div style={{ fontWeight: 600, fontSize: 15, color: "#16a34a" }}>
+                  {consumeInvRow.available} {consumeInvRow.unitOfMeasure || "units"}
                 </div>
               </div>
-
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
-                  Quantity Consumed <span style={{ color: "#dc2626" }}>*</span>
-                </label>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 13 }}>Quantity Consumed</label>
                 <input
                   type="number"
                   className="input"
                   min="0.01"
-                  max={consumeItem.available}
+                  max={consumeInvRow.available}
                   step="any"
-                  required
                   value={consumeQty}
                   onChange={(e) => setConsumeQty(e.target.value)}
+                  placeholder="Enter quantity"
+                  required
                   autoFocus
-                  placeholder={`Max: ${consumeItem.available}`}
                 />
               </div>
-
-              <div className="form-group" style={{ marginBottom: 20 }}>
-                <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
-                  Notes / Reason (optional)
-                </label>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 13 }}>Date</label>
                 <input
-                  type="text"
+                  type="date"
                   className="input"
-                  placeholder="e.g. Used in foundation pouring — Block C"
+                  value={consumedAt}
+                  onChange={(e) => setConsumedAt(e.target.value)}
+                  required
+                />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 13 }}>Notes (Optional)</label>
+                <input
+                  className="input"
                   value={consumeNote}
                   onChange={(e) => setConsumeNote(e.target.value)}
+                  placeholder="Reason / utilization details"
                 />
               </div>
-
-              <div className="modal-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="ch-btn ch-btn--outline"
-                  disabled={busy}
-                  onClick={() => { setConsumeModalOpen(false); setConsumeItem(null); }}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="ch-btn ch-btn--primary" disabled={busy}>
-                  <Flame size={14} />
-                  {busy ? "Consuming…" : "Confirm Consumption"}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn btn-outline" onClick={() => setConsumeModalOpen(false)} disabled={busy}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={busy}>
+                  <Flame size={15} />
+                  {busy ? "Saving…" : "Log Consumption"}
                 </button>
               </div>
             </form>
