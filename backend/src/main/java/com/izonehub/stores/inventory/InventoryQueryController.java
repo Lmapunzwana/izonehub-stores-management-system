@@ -50,11 +50,25 @@ public class InventoryQueryController {
     public List<SiteInventoryRow> getSiteInventory(@RequestParam(required = false) UUID storeId,
                                                    @AuthenticationPrincipal String email) {
         AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        List<Store> allowedStores = stores.findStoresForUser(user.getId());
-        List<UUID> allowedIds = allowedStores.stream().map(Store::getId).toList();
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        
+        List<Store> allowedStores = isSiteManager ? stores.findStoresForUser(user.getId()) : null;
+        List<UUID> allowedIds = (allowedStores != null && !allowedStores.isEmpty()) 
+                ? allowedStores.stream().map(Store::getId).toList() 
+                : null;
         
         List<StoreInventory> list = inventoryRepo.findAllEager().stream()
-                .filter(inv -> storeId == null ? allowedIds.contains(inv.getStore().getId()) : inv.getStore().getId().equals(storeId))
+                .filter(inv -> {
+                    if (storeId != null) {
+                        return inv.getStore().getId().equals(storeId);
+                    }
+                    if (allowedIds != null && !allowedIds.isEmpty()) {
+                        return allowedIds.contains(inv.getStore().getId());
+                    }
+                    return true;
+                })
                 .toList();
 
         return list.stream().map(inv -> new SiteInventoryRow(

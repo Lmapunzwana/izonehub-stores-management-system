@@ -52,6 +52,7 @@ export default function ReturnsPage() {
         setSiteInventory(list);
         setReturnLines(
           list.map(inv => ({
+            storeId: inv.storeId,
             itemId: inv.itemId,
             itemName: inv.itemName,
             itemCode: inv.itemCode,
@@ -121,10 +122,12 @@ export default function ReturnsPage() {
       if (returnSource === "request" && selectedRequestId) {
         await initiateReturn(selectedRequestId, payloadLines);
       } else {
+        const firstLineStoreId = returnLines.find(l => l.storeId)?.storeId;
+        const targetStoreId = siteStore?.id || firstLineStoreId;
         await apiFetch("/api/returns", {
           method: "POST",
           body: {
-            storeId: siteStore?.id,
+            storeId: targetStoreId,
             lines: payloadLines,
           }
         });

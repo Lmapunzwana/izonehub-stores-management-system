@@ -7,21 +7,12 @@ import { Package, Flame, Search } from "lucide-react";
 import { apiFetch } from "../api";
 
 export default function ConsumptionPage() {
-  const { defaultStoreId, consumeItems, stores } = useAppData();
+  const { consumeItems, stores } = useAppData();
   const { showAlert } = useAppModal();
   const [search, setSearch] = useState("");
-  const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId);
+  const [selectedStoreId, setSelectedStoreId] = useState("");
 
   const availableStores = useMemo(() => stores.filter(s => s.active && !s.closing), [stores]);
-
-  useEffect(() => {
-    if ((!selectedStoreId || !availableStores.some(s => s.id === selectedStoreId)) && availableStores.length > 0) {
-      const siteStore = availableStores.find(s => s.type === "SITE") || availableStores[0];
-      setSelectedStoreId(siteStore.id);
-    } else if (!selectedStoreId && defaultStoreId) {
-      setSelectedStoreId(defaultStoreId);
-    }
-  }, [availableStores, selectedStoreId, defaultStoreId]);
 
   const [consumeModalOpen, setConsumeModalOpen] = useState(false);
   const [consumeInvRow, setConsumeInvRow] = useState(null);
@@ -35,9 +26,9 @@ export default function ConsumptionPage() {
 
   // Fetch site store physical inventory
   const fetchSiteInventory = () => {
-    if (!selectedStoreId) return;
     setLoading(true);
-    apiFetch(`/api/inventory/site-inventory?storeId=${selectedStoreId}`)
+    const query = selectedStoreId ? `?storeId=${selectedStoreId}` : "";
+    apiFetch(`/api/inventory/site-inventory${query}`)
       .then((res) => {
         setSiteInventory(Array.isArray(res) ? res : []);
       })
@@ -73,7 +64,7 @@ export default function ConsumptionPage() {
       return;
     }
     try {
-      await consumeItems(selectedStoreId, [{
+      await consumeItems(consumeInvRow.storeId, [{
         itemId: consumeInvRow.itemId,
         quantity: qty,
         consumedAt,
@@ -115,10 +106,10 @@ export default function ConsumptionPage() {
           <div style={{ minWidth: "280px" }}>
             <select
               className="input"
-              value={selectedStoreId || ""}
+              value={selectedStoreId}
               onChange={(e) => setSelectedStoreId(e.target.value)}
             >
-              <option value="" disabled>Select Site Store...</option>
+              <option value="">All Managed Stores</option>
               {availableStores.map(s => (
                 <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
               ))}
