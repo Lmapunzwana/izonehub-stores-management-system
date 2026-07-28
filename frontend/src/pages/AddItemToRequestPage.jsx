@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Lock,
   Truck,
+  Info,
   Trash2,
   X,
   Plus,

@@ -44,17 +44,23 @@ public class ReturnCommandService {
         stockReturn.setStatus(ReturnStatus.CONFIRMED);
         MaterialIssueVoucher miv = stockReturn.getMiv();
 
-        Store centralStore = miv != null ? miv.getStore() : storeRepo.findByType(StoreType.CENTRAL).orElse(stockReturn.getStore());
+        Store centralStore = miv != null ? miv.getStore() : storeRepo.findByType(StoreType.CENTRAL).stream().findFirst().orElse(stockReturn.getStore());
         Store siteStore = miv != null ? miv.getProject().getSiteStore() : stockReturn.getStore();
 
         stockReturn.getLines().forEach(line -> {
-            if (line == null) return;
-            BigDecimal expectedQuantity = line.getQuantity();
-            BigDecimal receivedQuantity = req.lines().stream()
-                    .filter(cl -> cl.itemId().equals(line.getItem().getId()))
-                    .findFirst()
-                    .map(ConfirmLineRequest::receivedQuantity)
-                    .orElse(BigDecimal.ZERO);
+            if (line == null || line.getItem() == null) return;
+            BigDecimal expectedQuantity = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
+            
+            BigDecimal receivedQuantity;
+            if (req != null && req.lines() != null && !req.lines().isEmpty()) {
+                receivedQuantity = req.lines().stream()
+                        .filter(cl -> cl != null && cl.itemId() != null && cl.itemId().equals(line.getItem().getId()))
+                        .findFirst()
+                        .map(cl -> cl.receivedQuantity() != null ? cl.receivedQuantity() : expectedQuantity)
+                        .orElse(expectedQuantity);
+            } else {
+                receivedQuantity = expectedQuantity;
+            }
 
             if (miv != null) {
                 miv.getLines().stream()
