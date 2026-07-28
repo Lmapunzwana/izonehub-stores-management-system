@@ -11,17 +11,27 @@ export default function ReturnToCentralModal({ isOpen, onClose, onSuccess }) {
   const siteStores = stores.filter(s => s.type === "SITE" && s.active);
   const centralStores = stores.filter(s => s.type === "CENTRAL" && s.active);
   const isSiteManager = user?.roles?.includes("SITE_STORE_MANAGER") && !user?.roles?.includes("SYSTEM_ADMINISTRATOR") && !user?.roles?.includes("CENTRAL_STORE_MANAGER");
+  const [managerProjects, setManagerProjects] = useState([]);
 
-  const activeProjects = projects.filter(p => {
-    const isActive = p.status === "Active" || p.status === "IN_PROGRESS" || p.original?.active;
-    if (!isActive) return false;
-    if (isSiteManager) {
-      const isSiteStoreMatch = p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id;
-      const isAssignedEmployee = p.original?.assignedEmployees?.some(e => e.id === user?.id);
-      return isSiteStoreMatch || isAssignedEmployee;
+  useEffect(() => {
+    if (isOpen && isSiteManager && user?.id) {
+      apiFetch(`/api/projects/manager/${user.id}`)
+        .then((res) => {
+          const arr = Array.isArray(res) ? res : res.content || [];
+          setManagerProjects(arr.map(p => ({
+            id: p.id,
+            code: p.code,
+            name: p.name,
+            original: p
+          })));
+        })
+        .catch((e) => console.error("Failed to load manager projects", e));
     }
-    return true;
-  });
+  }, [isOpen, isSiteManager, user?.id]);
+
+  const activeProjects = isSiteManager
+    ? (managerProjects.length > 0 ? managerProjects : projects.filter(p => p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id))
+    : projects.filter(p => p.status === "Active" || p.status === "IN_PROGRESS" || p.original?.active);
 
   const [sourceStoreId, setSourceStoreId] = useState("");
   const [requestingStoreId, setRequestingStoreId] = useState("");

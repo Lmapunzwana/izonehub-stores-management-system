@@ -51,6 +51,24 @@ public class ProjectController {
         return p;
     }
 
+    @GetMapping("/manager/{userId}")
+    @Transactional(readOnly = true)
+    public List<Project> listForManager(@PathVariable UUID userId) {
+        List<Project> list = projects.findProjectsForUser(userId);
+        list.forEach(this::resolveLazy);
+        return list;
+    }
+
+    @GetMapping("/my-projects")
+    @Transactional(readOnly = true)
+    public List<Project> listMyProjects(@org.springframework.security.core.annotation.AuthenticationPrincipal String email) {
+        AppUser user = users.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        List<Project> list = projects.findProjectsForUser(user.getId());
+        list.forEach(this::resolveLazy);
+        return list;
+    }
+
     /** Force-initialize lazy associations needed by the JSON serializer. */
     private void resolveLazy(Project p) {
         if (p.getSiteStore() != null) {
@@ -58,6 +76,9 @@ public class ProjectController {
             if (p.getSiteStore().getManager() != null) {
                 p.getSiteStore().getManager().getFullName();
             }
+        }
+        if (p.getAssignedEmployees() != null) {
+            p.getAssignedEmployees().forEach(AppUser::getFullName);
         }
     }
 

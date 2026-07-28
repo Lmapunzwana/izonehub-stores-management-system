@@ -21,17 +21,27 @@ export default function AddItemToRequestPage() {
   const { items, addMaterialRequest, projects, stores, user } = useAppData();
   
   const isSiteManager = user?.roles?.includes("SITE_STORE_MANAGER") && !user?.roles?.includes("SYSTEM_ADMINISTRATOR") && !user?.roles?.includes("CENTRAL_STORE_MANAGER");
+  const [managerProjects, setManagerProjects] = useState([]);
 
-  const availableProjects = useMemo(() => {
-    if (isSiteManager) {
-      return projects.filter(p => {
-        const isSiteStoreMatch = p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id;
-        const isAssignedEmployee = p.original?.assignedEmployees?.some(e => e.id === user?.id);
-        return isSiteStoreMatch || isAssignedEmployee;
-      });
+  useEffect(() => {
+    if (isSiteManager && user?.id) {
+      apiFetch(`/api/projects/manager/${user.id}`)
+        .then((res) => {
+          const arr = Array.isArray(res) ? res : res.content || [];
+          setManagerProjects(arr.map(p => ({
+            id: p.id,
+            code: p.code,
+            name: p.name,
+            original: p
+          })));
+        })
+        .catch((e) => console.error("Failed to load manager projects", e));
     }
-    return projects;
-  }, [projects, isSiteManager, user]);
+  }, [isSiteManager, user?.id]);
+
+  const availableProjects = isSiteManager 
+    ? (managerProjects.length > 0 ? managerProjects : projects.filter(p => p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id))
+    : projects;
 
   const [itemsInRequest, setItemsInRequest] = useState([]);
   const [busy, setBusy] = useState(false);
