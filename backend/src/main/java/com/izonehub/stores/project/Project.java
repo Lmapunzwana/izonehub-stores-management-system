@@ -60,6 +60,10 @@ public class Project extends BaseEntity {
         assignedEmployees.remove(employee);
     }
 
+    public void reopen() {
+        active = true;
+    }
+
     public void close() {
         active = false;
     }

@@ -10,9 +10,8 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
     Page<Store> findByActive(boolean active, Pageable pageable);
     long countByActiveTrueAndManager_Id(UUID managerId);
     long countByActiveTrueAndClosingFalse();
-    boolean existsByType(StoreType type);
-    java.util.List<Store> findByManager_Id(UUID managerId);
+    java.util.Optional<Store> findByType(StoreType type);
 
-    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s FROM Store s WHERE s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM com.izonehub.stores.user.AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL)")
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s FROM Store s WHERE s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM com.izonehub.stores.user.AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL) OR s.id IN (SELECT p.siteStore.id FROM com.izonehub.stores.project.Project p JOIN p.assignedEmployees emp WHERE emp.id = :userId)")
     java.util.List<Store> findStoresForUser(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

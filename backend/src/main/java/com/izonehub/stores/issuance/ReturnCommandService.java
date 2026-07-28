@@ -2,6 +2,8 @@ package com.izonehub.stores.issuance;
 
 import com.izonehub.stores.inventory.InventoryCommandService;
 import com.izonehub.stores.store.Store;
+import com.izonehub.stores.store.StoreType;
+import com.izonehub.stores.store.StoreRepository;
 import com.izonehub.stores.movement.Discrepancy;
 import com.izonehub.stores.movement.DiscrepancyRepository;
 import com.izonehub.stores.issuance.ReturnController.ConfirmReturnRequest;
@@ -15,11 +17,14 @@ public class ReturnCommandService {
     private final StockReturnRepository returns;
     private final InventoryCommandService inventory;
     private final DiscrepancyRepository discrepancies;
+    private final StoreRepository storeRepo;
 
-    public ReturnCommandService(StockReturnRepository returns, InventoryCommandService inventory, DiscrepancyRepository discrepancies) {
+    public ReturnCommandService(StockReturnRepository returns, InventoryCommandService inventory,
+                                DiscrepancyRepository discrepancies, StoreRepository storeRepo) {
         this.returns = returns;
         this.inventory = inventory;
         this.discrepancies = discrepancies;
+        this.storeRepo = storeRepo;
     }
 
     @Transactional
@@ -38,8 +43,9 @@ public class ReturnCommandService {
     public StockReturn confirm(StockReturn stockReturn, ConfirmReturnRequest req) {
         stockReturn.setStatus(ReturnStatus.CONFIRMED);
         MaterialIssueVoucher miv = stockReturn.getMiv();
-        Store siteStore = miv != null ? miv.getProject().getSiteStore() : null;
-        Store centralStore = miv != null ? miv.getStore() : stockReturn.getStore();
+
+        Store centralStore = miv != null ? miv.getStore() : storeRepo.findByType(StoreType.CENTRAL).orElse(stockReturn.getStore());
+        Store siteStore = miv != null ? miv.getProject().getSiteStore() : stockReturn.getStore();
 
         stockReturn.getLines().forEach(line -> {
             if (line == null) return;
@@ -59,17 +65,23 @@ public class ReturnCommandService {
             }
 
             if (receivedQuantity.compareTo(BigDecimal.ZERO) > 0) {
-                inventory.completeTransit(siteStore, line.getItem(), receivedQuantity);
-                if (line.getCondition() == ReturnCondition.SERVICEABLE) {
-                    inventory.receive(centralStore, line.getItem(), receivedQuantity);
-                } else if (line.getCondition() == ReturnCondition.UNSERVICEABLE) {
-                    inventory.receiveDamaged(centralStore, line.getItem(), receivedQuantity);
+                if (siteStore != null) {
+                    inventory.completeTransit(siteStore, line.getItem(), receivedQuantity);
+                }
+                if (centralStore != null) {
+                    if (line.getCondition() == ReturnCondition.SERVICEABLE) {
+                        inventory.receive(centralStore, line.getItem(), receivedQuantity);
+                    } else if (line.getCondition() == ReturnCondition.UNSERVICEABLE) {
+                        inventory.receiveDamaged(centralStore, line.getItem(), receivedQuantity);
+                    }
                 }
             }
 
             if (expectedQuantity.compareTo(receivedQuantity) > 0) {
                 BigDecimal variance = expectedQuantity.subtract(receivedQuantity);
-                inventory.freezeTransitVariance(siteStore, line.getItem(), variance);
+                if (siteStore != null) {
+                    inventory.freezeTransitVariance(siteStore, line.getItem(), variance);
+                }
                 discrepancies.save(new Discrepancy(stockReturn, line.getItem(), expectedQuantity, receivedQuantity));
             }
         });

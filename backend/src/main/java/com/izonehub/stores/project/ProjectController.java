@@ -92,6 +92,22 @@ public class ProjectController {
         return p;
     }
 
+    @PutMapping("/{id}/reopen")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
+    public Project reopen(@PathVariable UUID id) {
+        Project p = projects.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        p.reopen();
+        projects.save(p);
+
+        var store = p.getSiteStore();
+        if (store != null) {
+            store.reopen();
+            stores.save(store);
+        }
+        return p;
+    }
+
     @PostMapping("/{id}/employees/{employeeId}")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
     public Project assignEmployee(@PathVariable UUID id, @PathVariable UUID employeeId) {

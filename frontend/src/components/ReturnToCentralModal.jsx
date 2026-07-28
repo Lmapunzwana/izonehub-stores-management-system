@@ -10,7 +10,7 @@ export default function ReturnToCentralModal({ isOpen, onClose, onSuccess }) {
 
   const siteStores = stores.filter(s => s.type === "SITE" && s.active);
   const centralStores = stores.filter(s => s.type === "CENTRAL" && s.active);
-  const activeProjects = projects.filter(p => p.status === "IN_PROGRESS");
+  const activeProjects = projects.filter(p => p.status === "Active" || p.status === "IN_PROGRESS" || p.original?.active);
 
   const [sourceStoreId, setSourceStoreId] = useState("");
   const [requestingStoreId, setRequestingStoreId] = useState("");
