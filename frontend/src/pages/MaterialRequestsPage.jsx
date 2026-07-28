@@ -62,7 +62,7 @@ export default function MaterialRequestsPage() {
       request: r,
       quantities: (r.lines || []).map((l, idx) => {
         const orig = originalLines[idx] || {};
-        const requested = Number(orig.requestedQuantity || l.quantity || 0);
+        const requested = Number(l.requested || l.quantity || orig.requestedQuantity || 0);
         return {
           lineId: orig.id,
           item: l.item,
@@ -455,8 +455,8 @@ export default function MaterialRequestsPage() {
                   <tr key={i}>
                     <td style={{ fontWeight: 500 }}>{l.item}</td>
                     <td style={{ color: "#64748b", fontSize: 13 }}>{l.uom || "—"}</td>
-                    <td style={{ textAlign: "right" }}>{l.quantity}</td>
-                    <td style={{ textAlign: "right" }}>{l.approved ?? l.quantity}</td>
+                    <td style={{ textAlign: "right", fontWeight: 600 }}>{l.requested ?? l.quantity ?? "—"}</td>
+                    <td style={{ textAlign: "right" }}>{l.approved ?? l.requested ?? l.quantity ?? "—"}</td>
                     <td style={{ textAlign: "right", color: "#2563eb" }}>{l.dispatched ?? "—"}</td>
                     <td style={{ textAlign: "right", color: "#16a34a" }}>{l.received ?? "—"}</td>
                   </tr>
