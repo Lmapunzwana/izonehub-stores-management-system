@@ -221,6 +221,19 @@ public class StoreController {
         }
 
         AppUser user = users.findByEmail(email).orElse(null);
+        
+        if (user != null) {
+            boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                    && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+            if (isSiteManager) {
+                java.util.List<Store> allowedStores = repo.findStoresForUser(user.getId());
+                boolean allowed = allowedStores.stream().anyMatch(s -> s.getId().equals(id));
+                if (!allowed) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only consume materials from your assigned site store.");
+                }
+            }
+        }
 
         for (ConsumeLineRequest l : req.lines()) {
             Item item = items.findById(l.itemId())

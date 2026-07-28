@@ -232,7 +232,7 @@ export default function ItemsPage() {
           title={activeTab === "site" ? "Physical Site Inventory" : "Master Item Catalog"}
           badge={activeTab === "site" ? `${visibleSiteInventory.length} inventory records` : `${visibleCatalog.length} items`}
           actions={[
-            { label: "Add Item", icon: <Plus size={16} />, variant: "primary", onClick: onAdd },
+            ...(!isSiteManager ? [{ label: "Add Item", icon: <Plus size={16} />, variant: "primary", onClick: onAdd }] : []),
             { label: "Export", icon: <Download size={16} />, variant: "outline", onClick: onExport },
           ]}
         />
@@ -486,7 +486,7 @@ export default function ItemsPage() {
                     <Badge type={item.status.type}>{item.status.label}</Badge>
                   </td>
                   <td>
-                    {item.status.label === "Low Stock" ? (
+                    {item.status.label === "Low Stock" && !isSiteManager ? (
                       <button
                         type="button"
                         className="ch-btn ch-btn--outline"

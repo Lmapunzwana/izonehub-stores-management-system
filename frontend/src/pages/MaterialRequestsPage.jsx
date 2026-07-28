@@ -147,7 +147,7 @@ export default function MaterialRequestsPage() {
               label: "New Request",
               icon: <Plus size={16} />,
               variant: "primary",
-              onClick: () => navigate("/material-requests/new"),
+              onClick: () => navigate("/material-requests/add-item"),
             },
           ]}
           status={{

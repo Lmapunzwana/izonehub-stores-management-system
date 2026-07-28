@@ -41,11 +41,15 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/items" element={
-                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
                   <ItemsPage />
                 </RequireRole>
               } />
-              <Route path="/consumption" element={<ConsumptionPage />} />
+              <Route path="/consumption" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "SITE_STORE_MANAGER"]}>
+                  <ConsumptionPage />
+                </RequireRole>
+              } />
               <Route path="/items/add-item" element={<AddItemPage />} />
               <Route path="/expected-receipts" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>

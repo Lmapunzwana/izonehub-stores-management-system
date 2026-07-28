@@ -140,6 +140,17 @@ public class MaterialRequestController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot request items for a closed or closing store");
         }
         
+        boolean isSiteManager = raisedBy.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER) 
+                                && !raisedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !raisedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (isSiteManager) {
+            java.util.List<Store> allowedStores = stores.findStoresForUser(raisedBy.getId());
+            boolean allowed = allowedStores.stream().anyMatch(s -> s.getId().equals(req.requestingStoreId()));
+            if (!allowed) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only request materials for your assigned site store.");
+            }
+        }
+        
         Store sourceStore = stores.findById(req.sourceStoreId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Source store not found"));
         
