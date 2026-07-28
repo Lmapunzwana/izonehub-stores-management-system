@@ -95,44 +95,63 @@ public class ReturnController {
     public StockReturn create(@Valid @RequestBody CreateReturnRequest req, @AuthenticationPrincipal String email) {
         AppUser returnedBy = users.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        MaterialIssueVoucher miv = mivs.findById(req.mivId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "MIV not found"));
+        
+        MaterialIssueVoucher miv = null;
+        Store targetStore = null;
+
+        if (req.mivId() != null) {
+            miv = mivs.findById(req.mivId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "MIV not found"));
+            targetStore = miv.getStore();
+        } else if (req.storeId() != null) {
+            targetStore = storeRepo.findById(req.storeId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store not found"));
+        } else if (returnedBy.getAssignedStore() != null) {
+            targetStore = returnedBy.getAssignedStore();
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Either mivId or storeId must be provided");
+        }
                 
         boolean isSiteManager = returnedBy.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
                                 && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
                                 && !returnedBy.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
         if (isSiteManager) {
             java.util.List<Store> managedStores = storeRepo.findStoresForUser(returnedBy.getId());
-            if (managedStores.stream().noneMatch(s -> s.getId().equals(miv.getProject().getSiteStore().getId()))) {
+            final UUID checkStoreId = miv != null ? miv.getProject().getSiteStore().getId() : targetStore.getId();
+            if (managedStores.stream().noneMatch(s -> s.getId().equals(checkStoreId))) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this store");
             }
         }
 
-        StockReturn sr = new StockReturn(miv, miv.getStore(), returnedBy);
+        StockReturn sr = new StockReturn(miv, targetStore, returnedBy);
         for (ReturnLineRequest l : req.lines()) {
             Item item = items.findById(l.itemId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found"));
             
-            // Validate return quantity does not exceed what was issued minus already returned
-            miv.getLines().stream()
-                .filter(java.util.Objects::nonNull)
-                .filter(ml -> ml.getItem().getId().equals(item.getId()))
-                .findFirst()
-                .ifPresentOrElse(ml -> {
-                    BigDecimal maxReturnable = ml.getIssuedQuantity().subtract(ml.getReturnedQuantity());
-                    if (l.quantity().compareTo(maxReturnable) > 0) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot return more than issued unused quantity for item " + item.getCode());
-                    }
-                }, () -> {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item " + item.getCode() + " was not issued in this MIV");
-                });
+            if (miv != null) {
+                // Validate return quantity does not exceed what was issued minus already returned
+                miv.getLines().stream()
+                    .filter(java.util.Objects::nonNull)
+                    .filter(ml -> ml.getItem().getId().equals(item.getId()))
+                    .findFirst()
+                    .ifPresentOrElse(ml -> {
+                        BigDecimal maxReturnable = ml.getIssuedQuantity().subtract(ml.getReturnedQuantity());
+                        if (l.quantity().compareTo(maxReturnable) > 0) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot return more than issued unused quantity for item " + item.getCode());
+                        }
+                    }, () -> {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item " + item.getCode() + " was not issued in this MIV");
+                    });
+            }
 
             sr.addLine(new StockReturnLine(item, l.quantity(), l.condition()));
         }
 
         StockReturn saved = svc.createPendingReturn(miv, sr);
-        auditLog.record("RETURN", saved.getId().toString(), "INITIATED",
-                "Initiated return against MIV '" + miv.getReferenceNumber() + "'", email);
+        String auditMsg = miv != null 
+                ? "Initiated return against MIV '" + miv.getReferenceNumber() + "'"
+                : "Initiated return from site inventory for store '" + targetStore.getName() + "'";
+        auditLog.record("RETURN", saved.getId().toString(), "INITIATED", auditMsg, email);
         return saved;
     }
 
@@ -183,7 +202,7 @@ public class ReturnController {
     }
 
     public record ReturnLineRequest(@NotNull UUID itemId, @NotNull BigDecimal quantity, @NotNull ReturnCondition condition) {}
-    public record CreateReturnRequest(@NotNull UUID mivId, @NotNull java.util.List<ReturnLineRequest> lines) {}
+    public record CreateReturnRequest(UUID mivId, UUID storeId, @NotNull java.util.List<ReturnLineRequest> lines) {}
     public record ConfirmLineRequest(@NotNull UUID itemId, @NotNull BigDecimal receivedQuantity) {}
     public record ConfirmReturnRequest(@NotNull java.util.List<ConfirmLineRequest> lines) {}
 }
