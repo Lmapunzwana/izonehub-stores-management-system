@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CirclePlus,
@@ -18,13 +18,33 @@ import { apiFetch } from "../api";
 
 export default function AddItemToRequestPage() {
   const navigate = useNavigate();
-  const { items, addMaterialRequest, projects, stores } = useAppData();
+  const { items, addMaterialRequest, projects, stores, user } = useAppData();
+  
+  const isSiteManager = user?.roles?.includes("SITE_STORE_MANAGER") && !user?.roles?.includes("SYSTEM_ADMINISTRATOR") && !user?.roles?.includes("CENTRAL_STORE_MANAGER");
+
+  const availableProjects = useMemo(() => {
+    if (isSiteManager) {
+      return projects.filter(p => {
+        const isSiteStoreMatch = p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id;
+        const isAssignedEmployee = p.original?.assignedEmployees?.some(e => e.id === user?.id);
+        return isSiteStoreMatch || isAssignedEmployee;
+      });
+    }
+    return projects;
+  }, [projects, isSiteManager, user]);
+
   const [itemsInRequest, setItemsInRequest] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || "");
+  const [selectedProjectId, setSelectedProjectId] = useState(availableProjects[0]?.id || "");
   const [allStores, setAllStores] = useState([]);
   
   const [sourceStoreId, setSourceStoreId] = useState("");
+
+  useEffect(() => {
+    if (!selectedProjectId && availableProjects.length > 0) {
+      setSelectedProjectId(availableProjects[0].id);
+    }
+  }, [availableProjects, selectedProjectId]);
 
   useEffect(() => {
     apiFetch("/api/stores?size=200&active=true&managedOnly=false")
@@ -170,15 +190,15 @@ export default function AddItemToRequestPage() {
               onChange={(e) => setSelectedProjectId(e.target.value)}
             >
               <option value="">Select a project…</option>
-              {projects.map((p) => (
+              {availableProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.code})
                 </option>
               ))}
             </select>
-            {projects.length === 0 && (
+            {availableProjects.length === 0 && (
               <p style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
-                No active projects — create one under Projects first.
+                {isSiteManager ? "No active projects assigned to your site store." : "No active projects — create one under Projects first."}
               </p>
             )}
           </div>

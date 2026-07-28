@@ -10,7 +10,18 @@ export default function ReturnToCentralModal({ isOpen, onClose, onSuccess }) {
 
   const siteStores = stores.filter(s => s.type === "SITE" && s.active);
   const centralStores = stores.filter(s => s.type === "CENTRAL" && s.active);
-  const activeProjects = projects.filter(p => p.status === "Active" || p.status === "IN_PROGRESS" || p.original?.active);
+  const isSiteManager = user?.roles?.includes("SITE_STORE_MANAGER") && !user?.roles?.includes("SYSTEM_ADMINISTRATOR") && !user?.roles?.includes("CENTRAL_STORE_MANAGER");
+
+  const activeProjects = projects.filter(p => {
+    const isActive = p.status === "Active" || p.status === "IN_PROGRESS" || p.original?.active;
+    if (!isActive) return false;
+    if (isSiteManager) {
+      const isSiteStoreMatch = p.original?.siteStore?.id === user?.assignedStoreId || p.original?.siteStore?.manager?.id === user?.id;
+      const isAssignedEmployee = p.original?.assignedEmployees?.some(e => e.id === user?.id);
+      return isSiteStoreMatch || isAssignedEmployee;
+    }
+    return true;
+  });
 
   const [sourceStoreId, setSourceStoreId] = useState("");
   const [requestingStoreId, setRequestingStoreId] = useState("");
