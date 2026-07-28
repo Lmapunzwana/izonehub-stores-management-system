@@ -47,7 +47,7 @@ export async function apiFetch(url, options = {}) {
   let response = await fetch(url, mergedOptions);
 
   // Intercept 401 Unauthorized for token refresh
-  if (response.status === 401 && !url.includes('/api/auth/login') && !url.includes('/api/auth/refresh')) {
+  if ((response.status === 401 || response.status === 403) && !url.includes('/api/auth/login') && !url.includes('/api/auth/refresh')) {
     if (!refreshPromise) {
       refreshPromise = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).finally(() => {
         refreshPromise = null;

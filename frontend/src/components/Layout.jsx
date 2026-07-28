@@ -35,7 +35,7 @@ const NAV_GROUPS = [
   {
     section: "Warehouse",
     links: [
-      { label: "Items",             path: "/items",           icon: Package,         badge: "items",           roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
+      { label: "Items",             path: "/items",           icon: Package,         badge: "items",           roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
       { label: "Expected Receipts", path: "/expected-receipts", icon: ArrowDownToLine, badge: "expectedReceipts", roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
       { label: "Issues & Dispatch", path: "/dispatch",        icon: Truck,           badge: "dispatch",        roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
       { label: "Returns",           path: "/returns",         icon: Undo2,           badge: "returns",         roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },

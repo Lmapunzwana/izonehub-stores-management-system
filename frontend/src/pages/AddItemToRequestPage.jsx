@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Lock,
   Truck,
-  Info,
   Trash2,
   X,
   Plus,
@@ -46,25 +45,32 @@ export default function AddItemToRequestPage() {
   const [sourceStoreStock, setSourceStoreStock] = useState({});
   useEffect(() => {
     if (sourceStoreId) {
-      apiFetch(`/api/reports/current-stock?storeId=${sourceStoreId}`)
+      // Use site-inventory for accurate stock: properly excludes frozen AND reserved
+      apiFetch(`/api/inventory/site-inventory?storeId=${sourceStoreId}`)
         .then((res) => {
           const arr = Array.isArray(res) ? res : res.content || [];
           const stockMap = {};
           arr.forEach(r => {
-             stockMap[r.itemCode] = {
-                 id: r.itemId,
-                 name: r.itemName,
-                 available: Math.max(0, Number(r.onHand || 0) - Number(r.reserved || 0)),
-                 reserved: Number(r.reserved || 0),
-                 incoming: Number(r.inTransit || 0)
-             };
+            // available = onHand - reserved (frozen items stay in onHand but should not be consumed)
+            const onHand    = Number(r.onHand    || 0);
+            const reserved  = Number(r.reserved  || 0);
+            const frozen    = Number(r.frozen    || 0);
+            const trueAvail = Math.max(0, onHand - reserved - frozen);
+            stockMap[r.itemCode] = {
+              id:        r.itemId,
+              name:      r.itemName,
+              uom:       r.unitOfMeasure || "",
+              available: trueAvail,
+              reserved,
+              frozen,
+              incoming:  Number(r.inTransit || 0),
+              onHand,
+            };
           });
           setSourceStoreStock(stockMap);
-          
-          // Auto-select the first available item if we haven't selected one
           const keys = Object.keys(stockMap);
           if (keys.length > 0) {
-              setSelectedItem(stockMap[keys[0]].name);
+            setSelectedItem(stockMap[keys[0]].name);
           }
         })
         .catch((e) => console.error("Failed to fetch source store stock", e));
@@ -79,13 +85,12 @@ export default function AddItemToRequestPage() {
   );
   
   const sourceStats = (sourceStoreId && selectedItemCode && sourceStoreStock[selectedItemCode]) 
-        || { available: 0, reserved: 0, incoming: 0, id: null };
+        || { available: 0, reserved: 0, frozen: 0, incoming: 0, onHand: 0, uom: "", id: null };
         
   const available = sourceStats.available;
     
-  const selectedItemUom = (() => {
+  const selectedItemUom = sourceStats.uom || (() => {
     if (!selectedItemCode) return "";
-    // Try to get UOM from the items array (which has original.unitOfMeasure)
     const found = items.find(i => i.code === selectedItemCode);
     return found?.original?.unitOfMeasure || "";
   })();
@@ -236,37 +241,43 @@ export default function AddItemToRequestPage() {
           <div className="sub-panel-header">
             <div className="sub-panel-header-left">
               <Package size={18} />
-              Availability
+              Availability at Source Store
             </div>
             <Badge type={isValid ? "success" : "danger"}>{isValid ? "Available" : "Insufficient"}</Badge>
           </div>
           <div className="sub-panel-body">
             <div className="stat-block">
-              <div className="stat-label">Available</div>
+              <div className="stat-label">Available{selectedItemUom ? ` (${selectedItemUom})` : ""}</div>
               <div className="stat-value-row">
                 <CheckCircle2 size={18} color="#16a34a" />
                 {available}
               </div>
             </div>
             <div className="stat-block">
-              <div className="stat-label">Reserved</div>
+              <div className="stat-label">On Hand{selectedItemUom ? ` (${selectedItemUom})` : ""}</div>
+              <div className="stat-value-row" style={{ color: "#1e293b" }}>
+                {sourceStats.onHand ?? 0}
+              </div>
+            </div>
+            <div className="stat-block">
+              <div className="stat-label">Reserved{selectedItemUom ? ` (${selectedItemUom})` : ""}</div>
               <div className="stat-value-row">
                 <Lock size={18} color="#ea580c" />
                 {sourceStats.reserved}
               </div>
             </div>
             <div className="stat-block">
-              <div className="stat-label">Incoming</div>
+              <div className="stat-label">Frozen{selectedItemUom ? ` (${selectedItemUom})` : ""}</div>
               <div className="stat-value-row">
-                <Truck size={18} color="#2563eb" />
-                {sourceStats.incoming}
+                <span style={{ fontSize: 18, color: "#7c3aed" }}>❄</span>
+                {sourceStats.frozen ?? 0}
               </div>
             </div>
             <div className="stat-block">
-              <div className="stat-label">Minimum</div>
+              <div className="stat-label">Incoming{selectedItemUom ? ` (${selectedItemUom})` : ""}</div>
               <div className="stat-value-row">
-                <Info size={18} color="#64748b" />
-                {items.find((i) => i.name === selectedItem)?.reorderPoint ?? 0}
+                <Truck size={18} color="#2563eb" />
+                {sourceStats.incoming}
               </div>
             </div>
           </div>
