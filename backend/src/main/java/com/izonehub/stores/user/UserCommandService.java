@@ -1,10 +1,11 @@
 package com.izonehub.stores.user;
 
 import com.izonehub.stores.auth.PasswordPolicy;
-import com.izonehub.stores.auth.PasswordResetService;
+import com.izonehub.stores.notification.EmailNotificationGateway;
 import com.izonehub.stores.store.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,28 +15,28 @@ import java.util.Set;
 /**
  * Creates new application users.
  *
- * On creation we trigger a password-reset flow (one-time link) rather than
- * emailing a plaintext temporary password. This means:
- *   1. The plaintext credential is never stored anywhere.
- *   2. The credential is never transmitted in cleartext via email.
- *   3. The user sets their own password via the secure reset flow.
+ * Sends a welcome email to the newly created user containing their username,
+ * initial password, and login link.
  */
 @Service
 public class UserCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(UserCommandService.class);
 
-    private final UserRepository      repo;
-    private final PasswordEncoder     encoder;
-    private final PasswordPolicy      policy;
-    private final PasswordResetService resetService;
+    private final UserRepository           repo;
+    private final PasswordEncoder          encoder;
+    private final PasswordPolicy           policy;
+    private final EmailNotificationGateway emailGateway;
+    private final String                   appBaseUrl;
 
     public UserCommandService(UserRepository repo, PasswordEncoder encoder,
-                              PasswordPolicy policy, PasswordResetService resetService) {
+                              PasswordPolicy policy, EmailNotificationGateway emailGateway,
+                              @Value("${app.base-url:https://stores.nsv.co.zw}") String appBaseUrl) {
         this.repo         = repo;
         this.encoder      = encoder;
         this.policy       = policy;
-        this.resetService = resetService;
+        this.emailGateway = emailGateway;
+        this.appBaseUrl   = appBaseUrl;
     }
 
     @Transactional
@@ -56,15 +57,20 @@ public class UserCommandService {
                 fullName, email.toLowerCase(), encoder.encode(temporaryPassword),
                 roles, assignedStore, createdBy));
 
-        // Send a one-time password-set link via the password reset flow.
-        // We never email the plaintext password — it's already encoded above.
+        // Send welcome email with login credentials and direct login link
         try {
-            resetService.initiateReset(savedUser);
+            String subject = "Welcome to NSV Stores — Account Credentials";
+            String body = "Welcome to NSV Stores Management System.\n\n"
+                    + "Your account has been created with the following login credentials:\n\n"
+                    + "  Email / Username: " + savedUser.getEmail() + "\n"
+                    + "  Password: " + temporaryPassword + "\n\n"
+                    + "Please log in at: " + appBaseUrl + "/login\n\n"
+                    + "We recommend updating your password after logging in.";
+
+            emailGateway.send(savedUser, subject, body);
             savedUser.setWelcomeEmailSent(true);
             repo.save(savedUser);
         } catch (Exception e) {
-            // Email failure must NOT roll back the user creation transaction.
-            // The admin can resend manually via the password reset endpoint.
             log.error("Failed to send welcome email to {}: {}", savedUser.getEmail(), e.getMessage(), e);
         }
 
