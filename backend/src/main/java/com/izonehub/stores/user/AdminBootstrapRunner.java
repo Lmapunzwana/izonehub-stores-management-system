@@ -43,12 +43,17 @@ public class AdminBootstrapRunner implements CommandLineRunner {
         }
 
         String normalizedEmail = email.toLowerCase();
-        if (users.existsByEmail(normalizedEmail)) {
-            System.err.println("A user with email " + normalizedEmail + " already exists. Refusing to create a duplicate.");
-            System.exit(1);
+        AppUser admin = users.findByEmail(normalizedEmail).orElse(null);
+        if (admin != null) {
+            admin.changePassword(encoder.encode(password));
+            admin.setLocked(false);
+            admin.setFailedLoginAttempts(0);
+            users.save(admin);
+            System.out.println("Admin password updated: " + normalizedEmail);
+            System.exit(0);
         }
 
-        AppUser admin = new AppUser("System Administrator", normalizedEmail,
+        admin = new AppUser("System Administrator", normalizedEmail,
                 encoder.encode(password), java.util.Set.of(Role.SYSTEM_ADMINISTRATOR), null, null);
         users.save(admin);
 
