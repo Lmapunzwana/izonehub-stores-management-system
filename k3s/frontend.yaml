@@ -17,7 +17,7 @@ spec:
       containers:
         - name: frontend
           # In production CI/CD pipelines, override 'latest' with release version/commit SHA tag
-          image: ghcr.io/izonehub/stores-management-system/frontend:latest
+          image: ghcr.io/lmapunzwana/stores-management-system/frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
