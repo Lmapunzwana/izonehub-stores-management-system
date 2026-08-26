@@ -53,11 +53,6 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
             log.warn("Resend: skipping email — recipient has no email address");
             return;
         }
-        String recipient = user.getEmail().trim().toLowerCase();
-        if (recipient.contains("petronelah") || recipient.contains("newsaharaventures")) {
-            log.info("Resend: email sending paused for recipient {}", user.getEmail());
-            return;
-        }
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("Resend: RESEND_API_KEY not set — email not sent to {}", user.getEmail());
             return;
