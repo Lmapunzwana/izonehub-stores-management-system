@@ -74,10 +74,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - stores.newsaharaventures.com
+        - stores.nsv.co.zw
       secretName: stores-tls
   rules:
-    - host: stores.newsaharaventures.com
+    - host: stores.nsv.co.zw
       http:
         paths:
           # All traffic goes to the Next.js/Bun frontend; it proxies /api/* to backend

@@ -15,8 +15,8 @@ app:
     address-line1: ${COMPANY_ADDRESS_LINE1:43 Coull Drive, Mount Pleasant, Harare}
     address-line2: ${COMPANY_ADDRESS_LINE2:Zimbabwe}
     phone: ${COMPANY_PHONE:+263 242 301 279 / +263 773 436 391}
-    email: ${COMPANY_EMAIL:info@newsaharaventures.com}
-    website: ${COMPANY_WEBSITE:www.newsaharaventures.com}
+    email: ${COMPANY_EMAIL:info@nsv.co.zw}
+    website: ${COMPANY_WEBSITE:www.nsv.co.zw}
     logo-classpath: ${COMPANY_LOGO_CLASSPATH:logo.jpeg}
     brand-color: ${COMPANY_BRAND_COLOR:#1F7A3D}
 
