@@ -47,20 +47,23 @@ public class ExpectedReceiptController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<ExpectedReceipt> list(@RequestParam(defaultValue = "0")  int page,
                                       @RequestParam(defaultValue = "20") int size,
                                       @RequestParam(required = false)    String status,
                                       @RequestParam(required = false)    UUID itemId) {
+        int cappedSize = Math.min(size, 200);
         var all = receipts.findAll().stream()
                 .filter(r -> status == null || r.getStatus().name().equalsIgnoreCase(status))
                 .filter(r -> itemId == null || r.getLines().stream().anyMatch(l -> l.getItem().getId().equals(itemId)))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
-        int total = all.size(), from = Math.min(page * size, total), to = Math.min(from + size, total);
-        return new PageImpl<>(all.subList(from, to), PageRequest.of(page, size), total);
+        int total = all.size(), from = Math.min(page * cappedSize, total), to = Math.min(from + cappedSize, total);
+        return new PageImpl<>(all.subList(from, to), PageRequest.of(page, cappedSize), total);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public ExpectedReceipt get(@PathVariable UUID id) {
         return receipts.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
@@ -97,7 +100,12 @@ public class ExpectedReceiptController {
         ExpectedReceipt receipt = receipts.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         
-        ExpectedReceiptStatus newStatus = ExpectedReceiptStatus.valueOf(req.status());
+        ExpectedReceiptStatus newStatus;
+        try {
+            newStatus = ExpectedReceiptStatus.valueOf(req.status().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status value");
+        }
         
         // Procurement cannot mark as received
         if (newStatus == ExpectedReceiptStatus.COMPLETED || newStatus == ExpectedReceiptStatus.PARTIALLY_RECEIVED) {

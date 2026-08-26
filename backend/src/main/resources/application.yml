@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:stores}
-    username: ${SPRING_DATASOURCE_USERNAME:stores}
-    password: ${SPRING_DATASOURCE_PASSWORD:stores}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate.ddl-auto: validate
     open-in-view: false
@@ -20,9 +20,12 @@ app:
     logo-classpath: ${COMPANY_LOGO_CLASSPATH:logo.jpeg}
     brand-color: ${COMPANY_BRAND_COLOR:#1F7A3D}
 
+  # Base URL of the frontend (used in password reset links and welcome emails).
+  # Must be set explicitly — no default, as a wrong value sends broken links.
+  base-url: ${APP_BASE_URL}
+
   # Email / Notification
   # provider: logging (default/no-op), resend (Resend.com), ses (AWS SES)
-  # For Resend: set APP_EMAIL_PROVIDER=resend and RESEND_API_KEY=re_xxxx
   email:
     provider: ${APP_EMAIL_PROVIDER:resend}
     from-address: ${APP_EMAIL_FROM:Notifications <notifications@mail.nsv.co.zw>}
@@ -31,14 +34,26 @@ app:
 
   jwt:
     issuer: izonehub-stores
-    secret: ${JWT_SECRET:dev-only-secret-key-must-be-overridden-and-longer-than-32-bytes}
+    # JWT_SECRET must be set via environment variable — no default is provided
+    # so that the application fails to start rather than silently using a
+    # publicly-known key. Generate with: openssl rand -hex 64
+    secret: ${JWT_SECRET}
     access-token-minutes: 15
     refresh-token-days: 7
+
+  cors:
+    # Comma-separated list of allowed frontend origins.
+    # For local dev: http://localhost:3000
+    # For production: https://stores.newsaharaventures.com
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
   security:
     max-failed-logins: 5
     login-rate-limit-attempts: 10
     login-rate-limit-minutes: 15
+    # Only trust X-Forwarded-For when behind a known reverse proxy (nginx in K3s).
+    # Set to true in production; leave false for local Docker Compose.
+    trust-proxy: ${TRUST_PROXY:false}
     cookie-secure: ${COOKIE_SECURE:true}
     cookie-domain: ${COOKIE_DOMAIN:}
     cookie-same-site: Strict

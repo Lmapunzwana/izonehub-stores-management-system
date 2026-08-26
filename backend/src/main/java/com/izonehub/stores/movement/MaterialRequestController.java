@@ -86,10 +86,10 @@ public class MaterialRequestController {
             if (userStoreIds.isEmpty()) {
                 userStoreIds = java.util.List.of(UUID.randomUUID());
             }
-            MaterialRequestStatus reqStatus = status != null ? MaterialRequestStatus.valueOf(status.toUpperCase()) : null;
+            MaterialRequestStatus reqStatus = status != null ? parseStatus(status) : null;
             result = requests.findForSiteManager(userStoreIds, user.getId(), reqStatus, pageable);
         } else if (status != null) {
-            MaterialRequestStatus reqStatus = MaterialRequestStatus.valueOf(status.toUpperCase());
+            MaterialRequestStatus reqStatus = parseStatus(status);
             result = requests.findByStatus(reqStatus, pageable);
         } else {
             result = requests.findAll(pageable);
@@ -208,18 +208,14 @@ public class MaterialRequestController {
 
         // ── Source-store manager enforcement ──────────────────────────────
         // Only the manager assigned to the SOURCE store (or SYSTEM_ADMINISTRATOR) may approve.
-        // Relaxed for frontend mock testing:
-        /*
         boolean isAdmin = approver.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR);
         if (!isAdmin) {
             var assignedStore = approver.getAssignedStore();
             if (assignedStore == null || !assignedStore.getId().equals(mr.getSourceStore().getId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Only the manager of the source store (" + mr.getSourceStore().getName()
-                                + ") may approve this request");
+                        "Only the manager of the source store may approve this request");
             }
         }
-        */
 
         List<BigDecimal> quantities = (body == null || body.quantities() == null)
                 ? mr.getLines().stream().filter(java.util.Objects::nonNull).map(MaterialRequestLine::getRequestedQuantity).toList()
@@ -353,6 +349,15 @@ public class MaterialRequestController {
 
     private AppUser currentUser(String email) {
         return users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+    }
+
+    /** Safe valueOf — throws BAD_REQUEST (not 500) for unrecognised status strings. */
+    private static MaterialRequestStatus parseStatus(String raw) {
+        try {
+            return MaterialRequestStatus.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status value: " + raw);
+        }
     }
 
     public record LineRequest(@NotNull UUID itemId, @NotNull BigDecimal requestedQuantity) {}

@@ -50,14 +50,26 @@ export default function App() {
                   <ConsumptionPage />
                 </RequireRole>
               } />
-              <Route path="/items/add-item" element={<AddItemPage />} />
+              <Route path="/items/add-item" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <AddItemPage />
+                </RequireRole>
+              } />
               <Route path="/expected-receipts" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
                   <ExpectedReceiptsPage />
                 </RequireRole>
               } />
-              <Route path="/material-requests" element={<MaterialRequestsPage />} />
-              <Route path="/material-requests/add-item" element={<AddItemToRequestPage />} />
+              <Route path="/material-requests" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <MaterialRequestsPage />
+                </RequireRole>
+              } />
+              <Route path="/material-requests/add-item" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <AddItemToRequestPage />
+                </RequireRole>
+              } />
               <Route path="/dispatch" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
                   <DispatchPage />
@@ -73,7 +85,11 @@ export default function App() {
                   <ProjectDetailsPage />
                 </RequireRole>
               } />
-              <Route path="/employees" element={<EmployeesPage />} />
+              <Route path="/employees" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <EmployeesPage />
+                </RequireRole>
+              } />
               <Route path="/users" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
                   <UsersPage />
@@ -89,9 +105,21 @@ export default function App() {
                   <SubscriptionPage />
                 </RequireRole>
               } />
-              <Route path="/returns" element={<ReturnsPage />} />
-              <Route path="/discrepancies" element={<DiscrepanciesPage />} />
-              <Route path="/stock-counts" element={<StockCountsPage />} />
+              <Route path="/returns" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <ReturnsPage />
+                </RequireRole>
+              } />
+              <Route path="/discrepancies" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <DiscrepanciesPage />
+                </RequireRole>
+              } />
+              <Route path="/stock-counts" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
+                  <StockCountsPage />
+                </RequireRole>
+              } />
               <Route path="/audit-log" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
                   <AuditLogPage />
@@ -102,7 +130,11 @@ export default function App() {
                   <ReportsPage />
                 </RequireRole>
               } />
-              <Route path="/confirm-grn" element={<ConfirmGRNPage />} />
+              <Route path="/confirm-grn" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <ConfirmGRNPage />
+                </RequireRole>
+              } />
               <Route path="/401" element={<UnauthorizedPage />} />
               <Route path="/403" element={<ForbiddenPage />} />
               <Route path="/500" element={<ServerErrorPage />} />

@@ -107,7 +107,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleDomainError(
             RuntimeException ex, HttpServletRequest request) {
         log.warn("[{}] Domain rule violation: {}", request.getRequestURI(), ex.getMessage());
-        return response(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request, null);
+        // Never expose internal class names (e.g. "No enum constant com.izonehub...")
+        // to the client — replace with a generic message that gives no reconnaissance value.
+        String message = sanitise(ex.getMessage());
+        if (message.startsWith("No enum constant")) {
+            message = "Invalid value provided";
+        }
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, message, request, null);
     }
 
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)

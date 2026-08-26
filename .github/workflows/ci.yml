@@ -1,88 +1,51 @@
-name: CI
+name: CI Pipeline
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: ["main", "develop"]
+    branches: [ main, master, develop ]
 
 jobs:
-  # ── Backend ──────────────────────────────────────────────────────────────────
-  backend:
-    name: Backend — build & test
+  backend-build-test:
+    name: Backend Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: "21"
+          java-version: '21'
+          distribution: 'temurin'
           cache: maven
 
-      - name: Run tests
-        run: mvn -f backend/pom.xml -q test
+      - name: Build & Run Tests
+        cwd: backend
+        run: mvn clean test
+        env:
+          JWT_SECRET: "ci-pipeline-test-secret-key-must-be-at-least-64-bytes-long-for-hs512"
+          APP_BASE_URL: "http://localhost:3000"
 
-      - name: Build JAR
-        run: mvn -f backend/pom.xml -q -DskipTests package
-
-  # ── Frontend ─────────────────────────────────────────────────────────────────
-  frontend:
-    name: Frontend — lint, type-check & build
+  frontend-build-audit:
+    name: Frontend Audit & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: '1.2'
 
       - name: Install dependencies
-        run: cd frontend && bun install
+        working-directory: frontend
+        run: bun install --frozen-lockfile
 
-      - name: Lint
-        run: cd frontend && bun run lint || true
+      - name: Run Audit
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
-      - name: Build
-        run: cd frontend && bun run build
-        env:
-          # Use a dummy backend URL so next.config.ts doesn't fail
-          BACKEND_URL: http://localhost:8080
-
-  # ── Docker images (only on main) ─────────────────────────────────────────────
-  docker:
-    name: Build & push Docker images
-    runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: ghcr.io/${{ github.repository }}/backend:latest,ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: ghcr.io/${{ github.repository }}/frontend:latest,ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build Frontend
+        working-directory: frontend
+        run: bun run build

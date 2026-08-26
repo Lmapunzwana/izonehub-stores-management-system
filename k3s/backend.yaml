@@ -16,7 +16,9 @@ spec:
     spec:
       containers:
         - name: backend
+          # In production CI/CD pipelines, override 'latest' with release version/commit SHA tag
           image: ghcr.io/izonehub/stores-management-system/backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           envFrom:
@@ -27,10 +29,10 @@ spec:
             - name: COOKIE_SECURE
               value: "true"
             - name: COOKIE_DOMAIN
-              value: stores.nvs.co.zw
-            # Only the frontend origin is allowed for CORS
-            - name: CORS_ALLOWED_ORIGINS
-              value: https://stores.nvs.co.zw
+              value: stores.newsaharaventures.com
+            # Trust reverse proxy (nginx ingress) for X-Forwarded-For resolution
+            - name: TRUST_PROXY
+              value: "true"
           readinessProbe:
             httpGet:
               path: /actuator/health

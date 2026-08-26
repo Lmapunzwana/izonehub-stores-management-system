@@ -5,6 +5,8 @@ import com.izonehub.stores.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,7 +19,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
+@SuppressWarnings("java:S106") // SonarLint: we intentionally use SLF4J, not System.out
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     static final String ACCESS_COOKIE  = "access_token";
     static final String REFRESH_COOKIE = "refresh_token";
@@ -104,35 +109,35 @@ public class AuthController {
     public void refresh(HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = extractCookie(request, REFRESH_COOKIE).orElse(null);
         if (refreshToken == null) {
-            System.out.println("DEBUG REFRESH: REFRESH_COOKIE is missing from request!");
+            log.debug("REFRESH: no refresh cookie present");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No refresh cookie");
         }
 
         var claimsOpt = jwt.validateRefreshToken(refreshToken);
         if (claimsOpt.isEmpty()) {
-            System.out.println("DEBUG REFRESH: validateRefreshToken failed for token: " + refreshToken);
+            log.debug("REFRESH: token validation failed");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
         }
         var claims = claimsOpt.get();
 
         AppUser user = users.findByEmail(claims.getSubject()).orElse(null);
         if (user == null) {
-            System.out.println("DEBUG REFRESH: User not found: " + claims.getSubject());
+            log.debug("REFRESH: user not found for subject in token");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
 
         if (!user.isActive() || user.isLocked()) {
-            System.out.println("DEBUG REFRESH: User inactive or locked: " + user.getEmail());
+            log.debug("REFRESH: user is inactive or locked");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User inactive");
         }
 
         if (!user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR) && user.getAssignedStore() == null) {
-            System.out.println("DEBUG REFRESH: User has no assigned store: " + user.getEmail());
+            log.debug("REFRESH: user has no assigned store");
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: You have no assigned store.");
         }
 
         writeTokenCookie(response, ACCESS_COOKIE, jwt.issueAccessToken(user), 15 * 60);
-        System.out.println("DEBUG REFRESH: Successfully issued new access token for " + user.getEmail());
+        log.debug("REFRESH: issued new access token");
     }
 
     // ── POST /api/auth/logout ─────────────────────────────────────────────────

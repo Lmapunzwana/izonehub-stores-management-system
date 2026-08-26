@@ -16,6 +16,10 @@ import {
   RotateCcw,
   Sliders,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { apiFetch } from "../api";
 
@@ -31,6 +35,10 @@ export default function ItemsPage() {
   const [category, setCategory] = useState("All Categories");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [categories, setCategories] = useState([]);
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   
   // Site Inventory State
   const [siteInventory, setSiteInventory] = useState([]);
@@ -225,6 +233,27 @@ export default function ItemsPage() {
     });
   }, [siteInventory, search, category]);
 
+  // Reset page to 1 whenever filters or tab change
+  useEffect(() => {
+    setPage(1);
+  }, [search, category, statusFilter, selectedStoreId, activeTab]);
+
+  // Compute pagination bounds
+  const totalItems = activeTab === "site" ? visibleSiteInventory.length : visibleCatalog.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = Math.min(page, totalPages);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  const paginatedSiteInventory = useMemo(() => {
+    return visibleSiteInventory.slice(startIndex, endIndex);
+  }, [visibleSiteInventory, startIndex, endIndex]);
+
+  const paginatedCatalog = useMemo(() => {
+    return visibleCatalog.slice(startIndex, endIndex);
+  }, [visibleCatalog, startIndex, endIndex]);
+
   return (
     <div className="page">
       <div className="card">
@@ -331,7 +360,7 @@ export default function ItemsPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleSiteInventory.map((inv) => {
+              {paginatedSiteInventory.map((inv) => {
                 const isFrozen = Number(inv.frozen) > 0;
                 return (
                   <tr key={inv.id}>
@@ -456,7 +485,7 @@ export default function ItemsPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleCatalog.map((item) => (
+              {paginatedCatalog.map((item) => (
                 <tr key={item.code}>
                   <td>
                     <div className="item-cell">
@@ -514,6 +543,93 @@ export default function ItemsPage() {
             </tbody>
           </table>
         )}
+
+        {/* Pagination Bar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            background: "#ffffff",
+            borderTop: "1px solid #e2e8f0",
+            flexWrap: "wrap",
+            gap: 12,
+            fontSize: 13,
+            color: "#64748b",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span>
+              Showing {totalItems > 0 ? startIndex + 1 : 0} to {endIndex} of {totalItems} entries
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span>Per page:</span>
+              <select
+                className="input"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{ padding: "4px 8px", fontSize: 13, height: 32 }}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ padding: "4px 8px", minWidth: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}
+              disabled={currentPage <= 1}
+              onClick={() => setPage(1)}
+              title="First page"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ padding: "4px 8px", minWidth: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              title="Previous page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <span style={{ margin: "0 8px", fontWeight: 500, color: "#1e293b" }}>
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ padding: "4px 8px", minWidth: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              title="Next page"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ padding: "4px 8px", minWidth: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage(totalPages)}
+              title="Last page"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* --- Action Modal: Consume --- */}

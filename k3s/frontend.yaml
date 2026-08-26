@@ -16,7 +16,9 @@ spec:
     spec:
       containers:
         - name: frontend
+          # In production CI/CD pipelines, override 'latest' with release version/commit SHA tag
           image: ghcr.io/izonehub/stores-management-system/frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:
@@ -78,7 +80,7 @@ spec:
     - host: stores.newsaharaventures.com
       http:
         paths:
-          # All traffic goes to the Next.js frontend; it proxies /api/* to backend
+          # All traffic goes to the Next.js/Bun frontend; it proxies /api/* to backend
           - path: /
             pathType: Prefix
             backend:

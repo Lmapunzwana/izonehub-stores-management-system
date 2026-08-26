@@ -23,7 +23,7 @@ public class PasswordResetService {
     public PasswordResetService(
             PasswordResetTokenRepository tokens,
             EmailNotificationGateway email,
-            @Value("${app.base-url:http://localhost:3000}") String appBaseUrl) {
+            @Value("${app.base-url}") String appBaseUrl) {
         this.tokens     = tokens;
         this.email      = email;
         this.appBaseUrl = appBaseUrl;

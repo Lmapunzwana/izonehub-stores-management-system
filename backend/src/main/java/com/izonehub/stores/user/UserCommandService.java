@@ -1,55 +1,72 @@
 package com.izonehub.stores.user;
 
 import com.izonehub.stores.auth.PasswordPolicy;
+import com.izonehub.stores.auth.PasswordResetService;
 import com.izonehub.stores.store.Store;
-import com.izonehub.stores.notification.EmailNotificationGateway;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Set;
 
+/**
+ * Creates new application users.
+ *
+ * On creation we trigger a password-reset flow (one-time link) rather than
+ * emailing a plaintext temporary password. This means:
+ *   1. The plaintext credential is never stored anywhere.
+ *   2. The credential is never transmitted in cleartext via email.
+ *   3. The user sets their own password via the secure reset flow.
+ */
 @Service
 public class UserCommandService {
-    private final UserRepository repo;
-    private final PasswordEncoder encoder;
-    private final PasswordPolicy policy;
-    private final EmailNotificationGateway emailGateway;
 
-    @Value("${app.url:https://stores-app-b96j.onrender.com/}")
-    private String appUrl;
+    private static final Logger log = LoggerFactory.getLogger(UserCommandService.class);
 
-    public UserCommandService(UserRepository repo, PasswordEncoder encoder, PasswordPolicy policy, EmailNotificationGateway emailGateway) {
-        this.repo = repo;
-        this.encoder = encoder;
-        this.policy = policy;
-        this.emailGateway = emailGateway;
+    private final UserRepository      repo;
+    private final PasswordEncoder     encoder;
+    private final PasswordPolicy      policy;
+    private final PasswordResetService resetService;
+
+    public UserCommandService(UserRepository repo, PasswordEncoder encoder,
+                              PasswordPolicy policy, PasswordResetService resetService) {
+        this.repo         = repo;
+        this.encoder      = encoder;
+        this.policy       = policy;
+        this.resetService = resetService;
     }
 
     @Transactional
-    public AppUser createUser(String fullName, String email, String temporaryPassword, Set<Role> roles, Store assignedStore, AppUser createdBy) {
+    public AppUser createUser(String fullName, String email, String temporaryPassword,
+                              Set<Role> roles, Store assignedStore, AppUser createdBy) {
         if (roles.contains(Role.SYSTEM_ADMINISTRATOR)) {
-            throw new IllegalArgumentException("System Administrator accounts cannot be created through application user management");
+            throw new IllegalArgumentException(
+                    "System Administrator accounts cannot be created through application user management");
         }
         if (!policy.isValid(temporaryPassword)) {
-            throw new IllegalArgumentException("Password does not meet policy");
+            throw new IllegalArgumentException("Password does not meet policy requirements");
         }
         if (repo.existsByEmail(email.toLowerCase())) {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        AppUser savedUser = repo.save(new AppUser(fullName, email.toLowerCase(), encoder.encode(temporaryPassword), roles, assignedStore, createdBy));
+        AppUser savedUser = repo.save(new AppUser(
+                fullName, email.toLowerCase(), encoder.encode(temporaryPassword),
+                roles, assignedStore, createdBy));
 
-        // Send welcome email
-        String subject = "Account Created - Sahara Ventures Stores Management System";
-        String message = String.format(
-            "Hie %s, your account has been created for the new sahara ventures stores management system, and your login details are as follows:\n\n" +
-            "Email: %s\n" +
-            "Password: %s\n\n" +
-            "Currently you can access it at %s",
-            fullName, email, temporaryPassword, appUrl
-        );
-        emailGateway.send(savedUser, subject, message);
+        // Send a one-time password-set link via the password reset flow.
+        // We never email the plaintext password — it's already encoded above.
+        try {
+            resetService.initiateReset(savedUser);
+            savedUser.setWelcomeEmailSent(true);
+            repo.save(savedUser);
+        } catch (Exception e) {
+            // Email failure must NOT roll back the user creation transaction.
+            // The admin can resend manually via the password reset endpoint.
+            log.error("Failed to send welcome email to {}: {}", savedUser.getEmail(), e.getMessage(), e);
+        }
 
         return savedUser;
     }

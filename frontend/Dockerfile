@@ -1,4 +1,4 @@
-FROM oven/bun:1-alpine AS builder
+FROM oven/bun:1.2-alpine AS builder
 
 WORKDIR /app
 
@@ -8,12 +8,15 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM oven/bun:1-alpine
+FROM oven/bun:1.2-alpine
 WORKDIR /app
 
-COPY --from=builder /app/dist ./dist
-COPY server.ts ./
+RUN addgroup -S app && adduser -S app -G app
 
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --chown=app:app server.ts ./
+
+USER app
 ENV PORT=3000
 EXPOSE 3000
 

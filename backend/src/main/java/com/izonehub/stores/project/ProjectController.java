@@ -34,16 +34,18 @@ public class ProjectController {
 
     @GetMapping
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<Project> list(@RequestParam(defaultValue = "0")    int page,
                               @RequestParam(defaultValue = "50")   int size,
                               @RequestParam(defaultValue = "true") boolean active) {
-        var projectPage = projects.findByActive(active, PageRequest.of(page, size));
+        var projectPage = projects.findByActive(active, PageRequest.of(page, Math.min(size, 200)));
         projectPage.forEach(this::resolveLazy);
         return projectPage;
     }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Project get(@PathVariable UUID id) {
         Project p = projects.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -53,7 +55,17 @@ public class ProjectController {
 
     @GetMapping("/manager/{userId}")
     @Transactional(readOnly = true)
-    public List<Project> listForManager(@PathVariable UUID userId) {
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
+    public List<Project> listForManager(@PathVariable UUID userId,
+                                        @org.springframework.security.core.annotation.AuthenticationPrincipal String email) {
+        // Non-admin users may only query their own project list.
+        AppUser caller = users.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        boolean isAdmin = caller.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                          || caller.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (!isAdmin && !caller.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
         List<Project> list = projects.findProjectsForUser(userId);
         list.forEach(this::resolveLazy);
         return list;

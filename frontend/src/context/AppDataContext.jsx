@@ -249,6 +249,14 @@ export function AppDataProvider({ children }) {
         const me = await apiFetch("/api/auth/me");
         setUser(me);
 
+        const roles = me.roles || [];
+        const isAdmin       = roles.includes("SYSTEM_ADMINISTRATOR");
+        const isCentral     = roles.includes("CENTRAL_STORE_MANAGER");
+        const isSite        = roles.includes("SITE_STORE_MANAGER");
+        const canManage     = isAdmin || isCentral || isSite;
+        const canManageUsers  = isAdmin || isCentral;
+        const canViewReports  = isAdmin || isCentral;
+
         // Fetch every store (open and closed) once, up front, so every page
         // that needs a store picker reads from real data instead of each
         // silently defaulting to defaultStoreId or hardcoding options.
@@ -264,6 +272,9 @@ export function AppDataProvider({ children }) {
         let sId = me.assignedStoreId || asList(openStoresResponse)[0]?.id || null;
         setDefaultStoreId(sId);
 
+        // Only fetch endpoints the user's role is allowed to access.
+        // This avoids generating 403 audit entries on every login and prevents
+        // role-inappropriate data from sitting in React state.
         const [
           fetchedItems,
           fetchedStock,
@@ -279,23 +290,20 @@ export function AppDataProvider({ children }) {
           fetchedAuditLog,
           fetchedSupplierPerf,
         ] = await Promise.all([
-          apiFetch("/api/items?size=2000").catch(() => []),
-          apiFetch("/api/reports/current-stock").catch(() => []),
-          apiFetch("/api/expected-receipts").catch(() => []),
-          apiFetch("/api/material-requests").catch(() => []),
-          apiFetch("/api/discrepancies").catch(() => []),
-          apiFetch("/api/users").catch(() => []),
-          apiFetch("/api/projects").catch(() => []),
-          apiFetch("/api/suppliers").catch(() => []),
-          apiFetch("/api/returns").catch(() => []),
-          apiFetch("/api/stock-counts").catch(() => []),
-          apiFetch("/api/batches").catch(() => []),
-
-          // Gated to SYSTEM_ADMINISTRATOR/FINANCE/EXECUTIVE_MANAGEMENT on the
-          // backend (see AuditLogController) — other roles get [] via catch,
-          // which is correct: they genuinely aren't allowed to see this.
-          apiFetch("/api/audit-log?size=100").catch(() => []),
-          apiFetch("/api/reports/supplier-performance").catch(() => []),
+          canManage ? apiFetch("/api/items?size=2000").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/reports/current-stock").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/expected-receipts").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/material-requests").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/discrepancies").catch(() => []) : Promise.resolve([]),
+          canManageUsers ? apiFetch("/api/users").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/projects").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/suppliers").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/returns").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/stock-counts").catch(() => []) : Promise.resolve([]),
+          canManage ? apiFetch("/api/batches").catch(() => []) : Promise.resolve([]),
+          // Gated to SYSTEM_ADMINISTRATOR/CENTRAL_STORE_MANAGER on the backend.
+          canViewReports ? apiFetch("/api/audit-log?size=100").catch(() => []) : Promise.resolve([]),
+          canViewReports ? apiFetch("/api/reports/supplier-performance").catch(() => []) : Promise.resolve([]),
         ]);
 
         const stockRows = asList(fetchedStock);
