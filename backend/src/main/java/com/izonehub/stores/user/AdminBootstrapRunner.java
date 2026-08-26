@@ -46,8 +46,7 @@ public class AdminBootstrapRunner implements CommandLineRunner {
         AppUser admin = users.findByEmail(normalizedEmail).orElse(null);
         if (admin != null) {
             admin.changePassword(encoder.encode(password));
-            admin.setLocked(false);
-            admin.setFailedLoginAttempts(0);
+            admin.unlock();
             users.save(admin);
             System.out.println("Admin password updated: " + normalizedEmail);
             System.exit(0);
