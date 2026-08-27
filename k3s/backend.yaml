@@ -16,7 +16,6 @@ spec:
     spec:
       containers:
         - name: backend
-          # In production CI/CD pipelines, override 'latest' with release version/commit SHA tag
           image: ghcr.io/lmapunzwana/stores-management-system/backend:latest
           imagePullPolicy: Always
           ports:
@@ -29,7 +28,7 @@ spec:
             - name: COOKIE_SECURE
               value: "true"
             - name: COOKIE_DOMAIN
-              value: stores.nsv.co.zw
+              value: .nsv.co.zw
             # Trust reverse proxy (nginx ingress) for X-Forwarded-For resolution
             - name: TRUST_PROXY
               value: "true"
@@ -57,3 +56,30 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stores-backend-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.stores.nsv.co.zw
+      secretName: stores-backend-tls
+  rules:
+    - host: api.stores.nsv.co.zw
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: stores-backend
+                port:
+                  number: 80
