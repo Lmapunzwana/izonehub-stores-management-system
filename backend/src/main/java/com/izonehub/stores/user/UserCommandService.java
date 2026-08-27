@@ -63,19 +63,19 @@ public class UserCommandService {
             String subject = "Welcome to NSV Stores — Credentials & Getting Started Guide";
             String body = "Welcome to the NSV Stores Management System.\n\n"
                     + "Your user account has been successfully created with the following credentials:\n\n"
-                    + "  • Email / Username: " + savedUser.getEmail() + "\n"
-                    + "  • Temporary Password: " + temporaryPassword + "\n\n"
+                    + "  - Email / Username: " + savedUser.getEmail() + "\n"
+                    + "  - Temporary Password: " + temporaryPassword + "\n\n"
                     + "Direct Login Link: " + appBaseUrl + "/login\n\n"
                     + "Security Notice: For security compliance, please log in and update your password immediately using the 'Change Password' option.\n\n"
                     + "========================================================\n"
-                    + "📚 ONBOARDING RESOURCES & ATTACHMENTS\n"
+                    + "ONBOARDING RESOURCES & ATTACHMENTS\n"
                     + "========================================================\n\n"
                     + "1. PDF USER GUIDE (SEE ATTACHMENT BELOW)\n"
                     + "Please see the attached document ('NSV_Stores_User_Guide.pdf') at the bottom of this email. It contains step-by-step documentation covering store navigation, material requests, dispatches, receiving items, stock counts, and system management.\n\n"
                     + "2. VIDEO TRAINING TUTORIALS\n"
                     + "To understand daily workflows in depth, please review the video tutorials provided in your onboarding training package ('NSV_Stores_Training_Videos.zip'):\n"
-                    + "  • Site Store Managers: Watch videos on requesting materials, receiving shipments, and logging daily material consumption.\n"
-                    + "  • Central Store Managers: Watch videos on item catalog setup, expected receipts, MIV approval, and dispatching.\n\n"
+                    + "  - Site Store Managers: Watch videos on requesting materials, receiving shipments, and logging daily material consumption.\n"
+                    + "  - Central Store Managers: Watch videos on item catalog setup, expected receipts, MIV approval, and dispatching.\n\n"
                     + "If you have any questions or require support, please reach out to your system administrator.\n\n"
                     + "Best regards,\n"
                     + "NSV Stores Team";
@@ -83,12 +83,12 @@ public class UserCommandService {
             java.util.List<com.izonehub.stores.notification.EmailAttachment> attachments = new java.util.ArrayList<>();
             try {
                 byte[] pdfBytes = null;
-                java.io.File fileCur = new java.io.File("NSV_Stores_User_Guide.pdf");
-                if (fileCur.exists() && fileCur.isFile()) {
-                    pdfBytes = java.nio.file.Files.readAllBytes(fileCur.toPath());
-                } else {
-                    try (java.io.InputStream is = new org.springframework.core.io.ClassPathResource("NSV_Stores_User_Guide.pdf").getInputStream()) {
-                        pdfBytes = is.readAllBytes();
+                try (java.io.InputStream is = new org.springframework.core.io.ClassPathResource("NSV_Stores_User_Guide.pdf").getInputStream()) {
+                    pdfBytes = is.readAllBytes();
+                } catch (Exception e1) {
+                    java.io.File fileCur = new java.io.File("NSV_Stores_User_Guide.pdf");
+                    if (fileCur.exists() && fileCur.isFile()) {
+                        pdfBytes = java.nio.file.Files.readAllBytes(fileCur.toPath());
                     }
                 }
                 if (pdfBytes != null && pdfBytes.length > 0) {
