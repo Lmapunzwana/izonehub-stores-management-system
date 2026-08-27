@@ -42,9 +42,10 @@ public class UserCommandService {
     @Transactional
     public AppUser createUser(String fullName, String email, String temporaryPassword,
                               Set<Role> roles, Store assignedStore, AppUser createdBy) {
-        if (roles.contains(Role.SYSTEM_ADMINISTRATOR)) {
+        boolean creatorIsAdmin = createdBy != null && createdBy.getRoles().contains(Role.SYSTEM_ADMINISTRATOR);
+        if (roles.contains(Role.SYSTEM_ADMINISTRATOR) && !creatorIsAdmin) {
             throw new IllegalArgumentException(
-                    "System Administrator accounts cannot be created through application user management");
+                    "Only System Administrators can create other System Administrator accounts");
         }
         if (!policy.isValid(temporaryPassword)) {
             throw new IllegalArgumentException("Password does not meet policy requirements");

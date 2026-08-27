@@ -30,33 +30,42 @@ public class AdminBootstrapRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (!List.of(args).contains("--create-admin")) {
-            return; // normal boot — no-op, does not touch the DB
-        }
-
         String email = System.getenv("ADMIN_EMAIL");
-        String password = System.getenv("ADMIN_PASSWORD");
-
-        if (email == null || email.isBlank() || password == null || password.isBlank()) {
-            System.err.println("--create-admin requires ADMIN_EMAIL and ADMIN_PASSWORD env vars to be set.");
-            System.exit(1);
+        if (email == null || email.isBlank()) {
+            email = "lmapunzwana@gmail.com"; // Default admin email
         }
+        String password = System.getenv("ADMIN_PASSWORD");
 
         String normalizedEmail = email.toLowerCase();
         AppUser admin = users.findByEmail(normalizedEmail).orElse(null);
+
         if (admin != null) {
-            admin.changePassword(encoder.encode(password));
-            admin.unlock();
+            boolean changed = false;
+            if (!admin.getRoles().contains(Role.SYSTEM_ADMINISTRATOR)) {
+                admin.getRoles().add(Role.SYSTEM_ADMINISTRATOR);
+                changed = true;
+            }
+            if (!admin.isActive() || admin.isLocked()) {
+                admin.unlock();
+                changed = true;
+            }
+            if (password != null && !password.isBlank() && List.of(args).contains("--create-admin")) {
+                admin.changePassword(encoder.encode(password));
+                changed = true;
+            }
+            if (changed) {
+                users.save(admin);
+                System.out.println("Admin account synced with SYSTEM_ADMINISTRATOR role: " + normalizedEmail);
+            }
+        } else if (password != null && !password.isBlank()) {
+            admin = new AppUser("System Administrator", normalizedEmail,
+                    encoder.encode(password), java.util.Set.of(Role.SYSTEM_ADMINISTRATOR), null, null);
             users.save(admin);
-            System.out.println("Admin password updated: " + normalizedEmail);
-            System.exit(0);
+            System.out.println("Admin account created with SYSTEM_ADMINISTRATOR role: " + normalizedEmail);
         }
 
-        admin = new AppUser("System Administrator", normalizedEmail,
-                encoder.encode(password), java.util.Set.of(Role.SYSTEM_ADMINISTRATOR), null, null);
-        users.save(admin);
-
-        System.out.println("Admin created: " + normalizedEmail);
-        System.exit(0);
+        if (List.of(args).contains("--create-admin")) {
+            System.exit(0);
+        }
     }
 }

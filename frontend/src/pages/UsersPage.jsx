@@ -9,6 +9,7 @@ import { apiFetch } from "../api";
 // Administrator accounts cannot be created through application user
 // management") — so it's deliberately excluded here, not an oversight.
 const ASSIGNABLE_ROLES = [
+  "SYSTEM_ADMINISTRATOR",
   "CENTRAL_STORE_MANAGER",
   "SITE_STORE_MANAGER",
 ];
