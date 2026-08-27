@@ -59,12 +59,17 @@ public class EmailTemplateHelper {
     }
 
     public static String buildHtmlEmail(String recipientName, String subject, String body) {
+        return buildHtmlEmail(recipientName, subject, body, "https://stores.nsv.co.zw/logo.jpeg");
+    }
+
+    public static String buildHtmlEmail(String recipientName, String subject, String body, String logoUrl) {
         String safeBody = body
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\n", "<br>");
         String safeName = recipientName != null ? recipientName : "User";
+        String safeLogoUrl = logoUrl != null && !logoUrl.isBlank() ? logoUrl : "https://stores.nsv.co.zw/logo.jpeg";
 
         String template = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -126,7 +131,7 @@ a[x-apple-data-detectors] {
                    <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px">
                     <tbody>
                      <tr>
-                      <td align="center" style="padding:0;Margin:0;font-size:0px"><img alt="Company Logo" height="83" src="data:image/jpeg;base64,{{LOGO_BASE64}}" class="companyLogo" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic"></td>
+                      <td align="center" style="padding:0;Margin:0;font-size:0px"><img alt="Company Logo" height="60" src="{{LOGO_URL}}" class="companyLogo" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic"></td>
                      </tr>
                     </tbody>
                    </table></td>
@@ -203,6 +208,6 @@ a[x-apple-data-detectors] {
                 .replace("{{SUBJECT}}", subject)
                 .replace("{{NAME}}", safeName)
                 .replace("{{BODY}}", safeBody)
-                .replace("{{LOGO_BASE64}}", logoBase64);
+                .replace("{{LOGO_URL}}", safeLogoUrl);
     }
 }
