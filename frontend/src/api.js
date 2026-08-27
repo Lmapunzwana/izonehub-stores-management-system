@@ -21,7 +21,10 @@ const CSRF_EXEMPT_PATHS = [
   "/api/auth/reset-password",
 ];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api.stores.nsv.co.zw";
+
 export async function apiFetch(url, options = {}) {
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
   const method = (options.method || "GET").toUpperCase();
   const needsCsrf = !["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)
     && !CSRF_EXEMPT_PATHS.some((p) => url.includes(p));
@@ -44,12 +47,12 @@ export async function apiFetch(url, options = {}) {
     mergedOptions.body = JSON.stringify(mergedOptions.body);
   }
 
-  let response = await fetch(url, mergedOptions);
+  let response = await fetch(fullUrl, mergedOptions);
 
   // Intercept 401 Unauthorized for token refresh
   if ((response.status === 401 || response.status === 403) && !url.includes('/api/auth/login') && !url.includes('/api/auth/refresh')) {
     if (!refreshPromise) {
-      refreshPromise = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).finally(() => {
+      refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include' }).finally(() => {
         refreshPromise = null;
       });
     }
@@ -58,7 +61,7 @@ export async function apiFetch(url, options = {}) {
 
     if (refreshResponse.ok) {
       // Token was successfully refreshed, retry the original request
-      response = await fetch(url, mergedOptions);
+      response = await fetch(fullUrl, mergedOptions);
     } else {
       // Refresh token is also expired or invalid, force logout/redirect
       if (window.location.pathname !== '/login') {
