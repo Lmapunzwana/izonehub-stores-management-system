@@ -68,6 +68,16 @@ public class SupplierController {
         return suppliers.save(supplier);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public void delete(@PathVariable UUID id) {
+        Supplier supplier = suppliers.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        suppliers.delete(supplier);
+    }
+
     public record SupplierRequest(
             @NotBlank String name,
             @NotBlank String category,

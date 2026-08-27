@@ -95,6 +95,15 @@ export default function ProjectDetailsPage() {
           </div>
           <div className="detail-item">
             <div className="detail-label">
+              <Users size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+              Store Manager
+            </div>
+            <div className="detail-value">
+              {project.original.siteStore?.manager?.fullName || "Unassigned"}
+            </div>
+          </div>
+          <div className="detail-item">
+            <div className="detail-label">
               <DollarSign size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
               Budget Ceiling
             </div>
@@ -250,6 +259,25 @@ export default function ProjectDetailsPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {project.original.siteStore?.manager && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%", background: "#0284c7",
+                  color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontWeight: 700, fontSize: 14, flexShrink: 0,
+                }}>
+                  {project.original.siteStore.manager.fullName?.[0] || "M"}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, color: "#0369a1" }}>{project.original.siteStore.manager.fullName}</div>
+                  <div style={{ fontSize: 12, color: "#0284c7", fontWeight: 500 }}>Assigned Store Manager</div>
+                </div>
+              </div>
+              <Badge type="info">Site Manager</Badge>
+            </div>
+          )}
+
           {(project.original.assignedEmployees || []).map(e => (
             <div key={e.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

@@ -30,6 +30,7 @@ import RequireRole from "./components/RequireRole";
 import RequireAuth from "./components/RequireAuth";
 import LoginPage from "./pages/LoginPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 
 export default function App() {
   return (
@@ -105,6 +106,7 @@ export default function App() {
                   <SubscriptionPage />
                 </RequireRole>
               } />
+              <Route path="/change-password" element={<ChangePasswordPage />} />
               <Route path="/returns" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
                   <ReturnsPage />

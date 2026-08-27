@@ -25,14 +25,15 @@ import java.util.*;
 @RequestMapping("/api/items")
 public class ItemController {
 
-    private final ItemRepository repo;
-    private final com.izonehub.stores.user.UserRepository users;
-    private final com.izonehub.stores.store.StoreRepository stores;
+    private final com.izonehub.stores.inventory.InventoryCommandService inventoryService;
 
-    public ItemController(ItemRepository repo, com.izonehub.stores.user.UserRepository users, com.izonehub.stores.store.StoreRepository stores) {
+    public ItemController(ItemRepository repo, com.izonehub.stores.user.UserRepository users, 
+                          com.izonehub.stores.store.StoreRepository stores,
+                          com.izonehub.stores.inventory.InventoryCommandService inventoryService) {
         this.repo = repo;
         this.users = users;
         this.stores = stores;
+        this.inventoryService = inventoryService;
     }
 
     @GetMapping
@@ -87,8 +88,15 @@ public class ItemController {
     public Item create(@Valid @RequestBody ItemRequest req) {
         if (repo.existsByCodeIgnoreCase(req.code()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Item code already exists");
-        return repo.save(new Item(req.code(), req.name(), req.description(),
+        Item savedItem = repo.save(new Item(req.code(), req.name(), req.description(),
                 req.unitOfMeasure(), ItemCategory.valueOf(req.category()), req.reorderThreshold()));
+
+        if (req.initialQuantity() != null && req.initialQuantity().compareTo(BigDecimal.ZERO) > 0 && req.storeId() != null) {
+            com.izonehub.stores.store.Store store = stores.findById(req.storeId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store not found"));
+            inventoryService.receive(store, savedItem, req.initialQuantity());
+        }
+        return savedItem;
     }
 
     @PutMapping("/{id}")
@@ -111,6 +119,15 @@ public class ItemController {
         repo.save(item);
     }
 
+    @DeleteMapping("/{id}/purge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public void purge(@PathVariable UUID id) {
+        Item item = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        repo.delete(item);
+    }
+
     /** POST /api/items/import — CSV columns: code,name,unitOfMeasure,category,reorderThreshold */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
@@ -120,10 +137,6 @@ public class ItemController {
         List<String> errors   = new ArrayList<>();
         int saved = 0, row = 1;
 
-        // One query for the whole batch instead of one findAll() per CSV
-        // row — the old code called repo.findAll() inside the loop, which
-        // meant importing N rows against an existing table of M items did
-        // up to N full-table loads of M rows each in a single request.
         Set<String> existingCodes = new HashSet<>(repo.findAllCodesLowercase());
         Set<String> seenInThisFile = new HashSet<>();
 
@@ -164,5 +177,7 @@ public class ItemController {
             String description,
             @NotBlank String unitOfMeasure,
             @NotBlank String category,
-            @NotNull @DecimalMin("0") BigDecimal reorderThreshold) {}
+            @NotNull @DecimalMin("0") BigDecimal reorderThreshold,
+            BigDecimal initialQuantity,
+            UUID storeId) {}
 }

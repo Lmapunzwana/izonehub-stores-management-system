@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { Truck, Download, Plus, Mail, Phone, X, Save, Star } from "lucide-react";
+import { Truck, Download, Plus, Mail, Phone, X, Save, Star, Trash2 } from "lucide-react";
 import CardHeader from "../components/CardHeader";
+import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
+import { apiFetch } from "../api";
 
 const EMPTY_FORM = {
   name: "",
@@ -14,11 +16,21 @@ const EMPTY_FORM = {
 };
 
 export default function SuppliersPage() {
-  const { suppliers, addSupplier, updateSupplier } = useAppData();
+  const { suppliers, addSupplier, updateSupplier, user } = useAppData();
+  const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
+
+  function onDelete(id, name) {
+    if (!isAdmin) return;
+    if (window.confirm(`Are you sure you want to delete supplier "${name}"?`)) {
+      apiFetch(`/api/suppliers/${id}`, { method: "DELETE" })
+        .then(() => window.location.reload())
+        .catch((err) => console.error(err));
+    }
+  }
 
   const categories = useMemo(
     () => ["All Categories", ...new Set(suppliers.map((s) => s.category))],
@@ -162,10 +174,15 @@ export default function SuppliersPage() {
                 <td>{s.rating != null ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Star size={12} fill="#f59e0b" color="#f59e0b" /> {s.rating}</span> : "—"}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn">View</button>
                     <button className="btn" onClick={() => onEdit(s.id)}>
                       Edit
                     </button>
+                    {isAdmin && (
+                      <button className="btn btn-danger" onClick={() => onDelete(s.id, s.name)}>
+                        <Trash2 size={13} style={{ verticalAlign: "-2px", marginRight: 3 }} />
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

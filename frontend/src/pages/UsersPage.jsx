@@ -95,18 +95,23 @@ export default function UsersPage() {
     setBusyId(userId);
     try {
       await apiFetch(`/api/users/${userId}/store/${storeId}`, { method: "PUT" });
+      const targetStore = stores.find((s) => s.id === storeId);
+      const storeName = targetStore ? targetStore.name : "Assigned";
+      setUserList((rows) => rows.map((u) => (u.id === userId ? { ...u, store: storeName } : u)));
       const updated = await apiFetch("/api/users");
-      setUserList(
-        (Array.isArray(updated) ? updated : updated.content || []).map((u) => ({
-          id: u.id,
-          fullName: u.fullName,
-          email: u.email,
-          roles: u.roles || [],
-          store: u.assignedStore?.name || "Unassigned",
-          active: u.active,
-          locked: u.locked,
-        }))
-      );
+      if (updated) {
+        setUserList(
+          (Array.isArray(updated) ? updated : updated.content || []).map((u) => ({
+            id: u.id,
+            fullName: u.fullName,
+            email: u.email,
+            roles: u.roles || [],
+            store: u.assignedStore?.name || "Unassigned",
+            active: u.active,
+            locked: u.locked,
+          }))
+        );
+      }
     } catch (e) {
       console.error(e);
     } finally {

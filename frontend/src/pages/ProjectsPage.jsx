@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderPlus, ArrowRight, Lock } from "lucide-react";
+import { FolderPlus, ArrowRight, Lock, Trash2 } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
+import { apiFetch } from "../api";
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const { projects, addProject, closeProject, stores, user } = useAppData();
-  const { showConfirm } = useAppModal();
+  const { showConfirm, showAlert } = useAppModal();
 
   const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
   const isAdmin   = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
@@ -46,6 +47,23 @@ export default function ProjectsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function deleteProject(id, name) {
+    showConfirm({
+      title: "Delete Project",
+      message: `Are you sure you want to permanently delete project "${name}"? This action cannot be undone.`,
+      type: "danger",
+      confirmText: "Yes, Delete",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/api/projects/${id}`, { method: "DELETE" });
+          window.location.reload();
+        } catch (e) {
+          showAlert({ title: "Delete Failed", message: e.message || "Failed to delete project", type: "danger" });
+        }
+      },
+    });
   }
 
   return (
@@ -189,6 +207,17 @@ export default function ProjectsPage() {
                         }}
                       >
                         Close Project
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="ch-btn ch-btn--danger"
+                        onClick={() => deleteProject(p.id, p.name)}
+                        title="Permanently delete project"
+                      >
+                        <Trash2 size={14} />
+                        Delete
                       </button>
                     )}
                   </div>

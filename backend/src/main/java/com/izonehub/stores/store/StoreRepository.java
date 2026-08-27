@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface StoreRepository extends JpaRepository<Store, UUID> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"manager"})
     Page<Store> findByActive(boolean active, Pageable pageable);
     long countByActiveTrueAndManager_Id(UUID managerId);
     long countByActiveTrueAndClosingFalse();
@@ -14,6 +15,7 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
     java.util.List<Store> findByType(StoreType type);
     java.util.List<Store> findByManager_Id(UUID managerId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"manager"})
     @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s FROM Store s WHERE s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM com.izonehub.stores.user.AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL) OR s.id IN (SELECT p.siteStore.id FROM com.izonehub.stores.project.Project p JOIN p.assignedEmployees emp WHERE emp.id = :userId)")
     java.util.List<Store> findStoresForUser(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

@@ -193,6 +193,32 @@ public class AuthController {
         return Map.of("message", "Password reset successfully");
     }
 
+    // ── POST /api/auth/change-password ───────────────────────────────────────
+
+    @PostMapping("/change-password")
+    public Map<String, String> changePassword(@Valid @RequestBody AuthDtos.ChangePasswordRequest req,
+                                              @AuthenticationPrincipal String email) {
+        if (email == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        AppUser user = users.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        if (!encoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        if (!policy.isValid(req.newPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Password must be 8+ characters with a digit and special character");
+        }
+
+        user.changePassword(encoder.encode(req.newPassword()));
+        users.save(user);
+
+        return Map.of("message", "Password changed successfully");
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private void writeTokenCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds) {

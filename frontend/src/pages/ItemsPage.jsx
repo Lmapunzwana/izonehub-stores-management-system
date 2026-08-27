@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Trash2,
 } from "lucide-react";
 import { apiFetch } from "../api";
 
@@ -59,6 +60,16 @@ export default function ItemsPage() {
   const [adjustReason, setAdjustReason] = useState("");
 
   const [busy, setBusy] = useState(false);
+  const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
+
+  function handlePurgeItem(id, name) {
+    if (!isAdmin) return;
+    if (window.confirm(`Are you sure you want to permanently delete item "${name}"? This action cannot be undone.`)) {
+      apiFetch(`/api/items/${id}/purge`, { method: "DELETE" })
+        .then(() => refreshItems())
+        .catch((err) => showAlert({ title: "Delete Failed", message: err?.message || "Failed to delete item", type: "danger" }));
+    }
+  }
 
   // Available stores
   const activeStores = useMemo(() => stores.filter(s => s.active && !s.closing), [stores]);
@@ -515,21 +526,33 @@ export default function ItemsPage() {
                     <Badge type={item.status.type}>{item.status.label}</Badge>
                   </td>
                   <td>
-                    {item.status.label === "Low Stock" && !isSiteManager ? (
-                      <button
-                        type="button"
-                        className="ch-btn ch-btn--outline"
-                        onClick={() =>
-                          navigate("/expected-receipts", { state: { lockedItemId: item.id, lockedItemName: item.name } })
-                        }
-                        title="Below reorder threshold — create an Expected Receipt to restock"
-                      >
-                        <ShoppingCart size={16} />
-                        Reorder
-                      </button>
-                    ) : (
-                      <span style={{ color: "#64748b", fontSize: 13 }}>—</span>
-                    )}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {item.status.label === "Low Stock" && !isSiteManager && (
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--outline"
+                          onClick={() =>
+                            navigate("/expected-receipts", { state: { lockedItemId: item.id, lockedItemName: item.name } })
+                          }
+                          title="Below reorder threshold — create an Expected Receipt to restock"
+                        >
+                          <ShoppingCart size={16} />
+                          Reorder
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--danger"
+                          onClick={() => handlePurgeItem(item.id, item.name)}
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          title="Permanently delete item"
+                        >
+                          <Trash2 size={13} />
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

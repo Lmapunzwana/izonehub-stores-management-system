@@ -67,6 +67,12 @@ const NAV_GROUPS = [
       { label: "Reports",           path: "/reports",         icon: BarChart3,       badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
     ],
   },
+  {
+    section: "Account",
+    links: [
+      { label: "Change Password",   path: "/change-password", icon: UserCog,         badge: null },
+    ],
+  },
 ]
 
 export default function Layout({ children }) {

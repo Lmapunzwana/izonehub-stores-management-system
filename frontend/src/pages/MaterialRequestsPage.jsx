@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
-import { Plus, Check, X, ChevronDown, Package, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Plus, Check, X, ChevronDown, Package, CheckCircle2, AlertTriangle, Trash2 } from "lucide-react";
 import { useAppData } from "../context/AppDataContext";
 import { useAppModal } from "../context/ModalContext";
 
@@ -207,55 +207,78 @@ export default function MaterialRequestsPage() {
                   )}
                 </td>
                 <td>
-                  {r.status === "Pending Approval" && (isCentral || isAdmin) ? (
-                    <div className="action-buttons">
-                      <button
-                        type="button"
-                        className="ch-btn ch-btn--success"
-                        disabled={busyId === r.id}
-                        onClick={() => openApproveModal(r)}
-                      >
-                        <Check size={16} />
-                        Approve
-                        <ChevronDown size={13} style={{ marginLeft: 2 }} />
-                      </button>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {r.status === "Pending Approval" && (isCentral || isAdmin) ? (
+                      <div className="action-buttons">
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--success"
+                          disabled={busyId === r.id}
+                          onClick={() => openApproveModal(r)}
+                        >
+                          <Check size={16} />
+                          Approve
+                          <ChevronDown size={13} style={{ marginLeft: 2 }} />
+                        </button>
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--danger"
+                          disabled={busyId === r.id}
+                          onClick={() => { setRejectModalId(r.id); setRejectReason(""); }}
+                        >
+                          <X size={16} />
+                          Reject
+                        </button>
+                      </div>
+                    ) : r.status === "In Transit" ? (
+                      (isSite || isAdmin) ? (
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--success"
+                          disabled={busyId === r.id}
+                          onClick={() => openReceiveModal(r)}
+                        >
+                          <CheckCircle2 size={16} />
+                          Receive Items
+                        </button>
+                      ) : (
+                        <button className="ch-btn ch-btn--outline" onClick={() => navigate("/dispatch")}>
+                          View Dispatch
+                        </button>
+                      )
+                    ) : r.status === "Approved" ? (
+                      (isCentral || isAdmin) ? (
+                        <button className="ch-btn ch-btn--outline" onClick={() => navigate("/dispatch")}>
+                          Process Dispatch
+                        </button>
+                      ) : (
+                        <span style={{ color: "#2563eb", fontSize: 13, fontWeight: 500 }}>Approved — Awaiting Dispatch</span>
+                      )
+                    ) : (
+                      <span style={{ color: "#64748b", fontSize: 13 }}>—</span>
+                    )}
+                    {isAdmin && (
                       <button
                         type="button"
                         className="ch-btn ch-btn--danger"
-                        disabled={busyId === r.id}
-                        onClick={() => { setRejectModalId(r.id); setRejectReason(""); }}
+                        onClick={async () => {
+                          if (window.confirm(`Permanently delete request ${r.requestNo}?`)) {
+                            try {
+                              await apiFetch(`/api/material-requests/${r.id}`, { method: "DELETE" });
+                              window.location.reload();
+                            } catch (e) {
+                              showAlert({ title: "Delete Failed", message: e.message || "Failed to delete request", type: "danger" });
+                            }
+                          }
+                        }}
+                        style={{ padding: "4px 8px", fontSize: 12 }}
+                        title="Permanently delete request"
                       >
-                        <X size={16} />
-                        Reject
+                        <Trash2 size={13} />
+                        Delete
                       </button>
-                    </div>
-                  ) : r.status === "In Transit" ? (
-                    (isSite || isAdmin) ? (
-                      <button
-                        type="button"
-                        className="ch-btn ch-btn--success"
-                        disabled={busyId === r.id}
-                        onClick={() => openReceiveModal(r)}
-                      >
-                        <CheckCircle2 size={16} />
-                        Receive Items
-                      </button>
-                    ) : (
-                      <button className="ch-btn ch-btn--outline" onClick={() => navigate("/dispatch")}>
-                        View Dispatch
-                      </button>
-                    )
-                  ) : r.status === "Approved" ? (
-                    (isCentral || isAdmin) ? (
-                      <button className="ch-btn ch-btn--outline" onClick={() => navigate("/dispatch")}>
-                        Go to Dispatch
-                      </button>
-                    ) : (
-                      <span style={{ color: "#64748b", fontSize: 13 }}>Awaiting dispatch</span>
-                    )
-                  ) : (
-                    <span style={{ color: "#64748b", fontSize: 13 }}>—</span>
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

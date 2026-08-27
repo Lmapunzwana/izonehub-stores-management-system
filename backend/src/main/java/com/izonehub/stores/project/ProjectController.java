@@ -141,6 +141,15 @@ public class ProjectController {
         return p;
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public void delete(@PathVariable UUID id) {
+        Project p = projects.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        projects.delete(p);
+    }
+
     @PostMapping("/{id}/employees/{employeeId}")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
     public Project assignEmployee(@PathVariable UUID id, @PathVariable UUID employeeId) {

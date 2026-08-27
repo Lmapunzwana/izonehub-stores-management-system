@@ -12,7 +12,7 @@ const UNITS_OF_MEASURE = [
 
 export default function AddItemPage() {
   const navigate = useNavigate();
-  const { addItem } = useAppData();
+  const { addItem, stores } = useAppData();
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -20,7 +20,15 @@ export default function AddItemPage() {
     category: "",
     unit: "Piece",
     reorderPoint: "0",
+    initialQuantity: "0",
+    storeId: "",
   });
+
+  useEffect(() => {
+    if (stores.length > 0 && !form.storeId) {
+      setForm((f) => ({ ...f, storeId: stores[0].id }));
+    }
+  }, [stores, form.storeId]);
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -69,6 +77,7 @@ export default function AddItemPage() {
       return;
     }
 
+    const initialQty = parseFloat(form.initialQuantity) || 0;
     setSaving(true);
     try {
       await addItem({
@@ -78,12 +87,13 @@ export default function AddItemPage() {
         unitOfMeasure:    form.unit,
         category:         form.category.toUpperCase(),
         reorderThreshold: threshold,
+        initialQuantity:  initialQty,
+        storeId:          initialQty > 0 ? form.storeId : null,
       });
       setSaved(true);
       setTimeout(() => navigate("/items"), 800);
     } catch (err) {
       setSaved(false);
-      // Surface the server error message if it has one
       const msg =
         err?.message ||
         err?.error ||
@@ -183,7 +193,7 @@ export default function AddItemPage() {
         <hr className="divider" />
 
         <h3 className="card-title" style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>
-          Stock Controls
+          Stock Controls & Initial Inventory
         </h3>
         <div className="form-grid">
           <div>
@@ -199,6 +209,38 @@ export default function AddItemPage() {
             />
             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
               Low Stock alert triggers when available quantity falls at or below this value
+            </div>
+          </div>
+          <div>
+            <label>Initial Stock Quantity</label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="any"
+              placeholder="0"
+              value={form.initialQuantity}
+              onChange={(e) => update("initialQuantity", e.target.value)}
+            />
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+              Initial quantity on hand to receive into store upon creation
+            </div>
+          </div>
+          <div>
+            <label>Target Store for Initial Stock</label>
+            <div className="select-wrap">
+              <select
+                className="input"
+                value={form.storeId}
+                onChange={(e) => update("storeId", e.target.value)}
+              >
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.type})
+                  </option>
+                ))}
+              </select>
+              <ChevronsUpDown size={16} className="select-icon" />
             </div>
           </div>
         </div>

@@ -164,6 +164,26 @@ public class StoreController {
         return savedStore;
     }
 
+    @PutMapping("/{id}/manager")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER')")
+    public Store updateManager(@PathVariable UUID id, @Valid @RequestBody UpdateManagerRequest req) {
+        Store s = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        AppUser manager = users.findById(req.managerId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Manager not found"));
+
+        if (!manager.getId().equals(s.getManager().getId()) && repo.countByActiveTrueAndManager_Id(manager.getId()) >= 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Manager already has the maximum of 5 active stores.");
+        }
+
+        s.setManager(manager);
+        manager.setAssignedStore(s);
+        users.save(manager);
+        return repo.save(s);
+    }
+
+    public record UpdateManagerRequest(@NotNull UUID managerId) {}
+
     @PostMapping("/{id}/close")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR', 'CENTRAL_STORE_MANAGER')")
     public Store close(@PathVariable UUID id, @AuthenticationPrincipal String email) {
@@ -206,6 +226,15 @@ public class StoreController {
         
         s.reopen();
         return repo.save(s);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public void deleteStore(@PathVariable UUID id) {
+        Store s = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        repo.delete(s);
     }
 
     @PostMapping("/{id}/consume")

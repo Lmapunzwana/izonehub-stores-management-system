@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Check, X, MapPin, Users, AlertTriangle } from "lucide-react";
+import { Plus, Check, X, MapPin, Users, AlertTriangle, Trash2 } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
@@ -7,8 +7,9 @@ import { useAppModal } from "../context/ModalContext";
 import { apiFetch } from "../api";
 
 export default function StoresPage() {
-  const { stores, addStore, refreshItems, users } = useAppData();
+  const { stores, addStore, refreshItems, users, user } = useAppData();
   const { showConfirm, showAlert } = useAppModal();
+  const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
   const [showForm, setShowForm] = useState(false);
   const [newStore, setNewStore] = useState({ name: "", type: "SITE", location: "", managerId: "" });
   const [error, setError] = useState(null);
@@ -101,6 +102,23 @@ export default function StoresPage() {
           window.location.reload();
         } catch (e) {
           showAlert({ title: "Reopen Failed", message: e.message || "Failed to reopen store", type: "danger" });
+        }
+      },
+    });
+  }
+
+  function deleteStore(id, name) {
+    showConfirm({
+      title: "Delete Store",
+      message: `Are you sure you want to permanently delete store "${name}"? This action cannot be undone.`,
+      type: "danger",
+      confirmText: "Yes, Delete",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/api/stores/${id}`, { method: "DELETE" });
+          window.location.reload();
+        } catch (e) {
+          showAlert({ title: "Delete Failed", message: e.message || "Failed to delete store", type: "danger" });
         }
       },
     });
@@ -315,6 +333,12 @@ export default function StoresPage() {
                       )}
                       {s.active && s.closing && (
                         <span style={{ color: "#f59e0b", fontWeight: 500, fontSize: 13 }}>Closing in progress</span>
+                      )}
+                      {isAdmin && (
+                        <button className="ch-btn ch-btn--danger" onClick={() => deleteStore(s.id, s.name)} title="Permanently delete store">
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
                       )}
                     </div>
                   </td>

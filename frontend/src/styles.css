@@ -13,9 +13,14 @@ body {
 }
 .sidebar {
     width: 240px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
     background: #fff;
     border-right: 1px solid #e5e7eb;
     padding: 24px 16px;
+    flex-shrink: 0;
 }
 .logo {
     font-size: 20px;
