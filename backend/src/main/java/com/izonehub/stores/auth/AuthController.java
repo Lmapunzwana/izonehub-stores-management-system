@@ -199,8 +199,11 @@ public class AuthController {
         StringBuilder sb = new StringBuilder();
         sb.append(name).append("=").append(value).append(";");
         sb.append(" HttpOnly; Path=/; Max-Age=").append(maxAgeSeconds).append(";");
-        sb.append(" SameSite=").append(cookieSameSite).append(";");
+        if (cookieSameSite != null && !cookieSameSite.isBlank()) {
+            sb.append(" SameSite=").append(cookieSameSite).append(";");
+        }
         if (cookieSecure) sb.append(" Secure;");
+        if ("None".equalsIgnoreCase(cookieSameSite)) sb.append(" Partitioned;");
         if (cookieDomain != null && !cookieDomain.isBlank()) sb.append(" Domain=").append(cookieDomain).append(";");
         response.addHeader("Set-Cookie", sb.toString());
     }
@@ -208,8 +211,11 @@ public class AuthController {
     private void clearCookie(HttpServletResponse response, String name) {
         StringBuilder sb = new StringBuilder();
         sb.append(name).append("=; HttpOnly; Path=/; Max-Age=0;");
-        sb.append(" SameSite=").append(cookieSameSite).append(";");
+        if (cookieSameSite != null && !cookieSameSite.isBlank()) {
+            sb.append(" SameSite=").append(cookieSameSite).append(";");
+        }
         if (cookieSecure) sb.append(" Secure;");
+        if ("None".equalsIgnoreCase(cookieSameSite)) sb.append(" Partitioned;");
         if (cookieDomain != null && !cookieDomain.isBlank()) sb.append(" Domain=").append(cookieDomain).append(";");
         response.addHeader("Set-Cookie", sb.toString());
     }
