@@ -29,6 +29,7 @@ public class AdminBootstrapRunner implements CommandLineRunner {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void run(String... args) {
         String email = System.getenv("ADMIN_EMAIL");
         if (email == null || email.isBlank()) {
