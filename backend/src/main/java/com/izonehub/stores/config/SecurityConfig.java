@@ -70,18 +70,22 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 // ── CSRF ─────────────────────────────────────────────────────────
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrf(csrf -> {
+                    CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+                    csrfRepo.setCookieCustomizer(cookie -> {
+                        cookie.sameSite("None");
+                        cookie.secure(true);
+                        cookie.path("/");
+                    });
+                    csrf.csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                         .ignoringRequestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/refresh",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password"
-                                // NOTE: /api/auth/logout intentionally requires the CSRF token to
-                                // prevent logout-CSRF attacks (denying service to a logged-in user).
-                        )
-                )
+                        );
+                })
 
                 // ── Session ───────────────────────────────────────────────────────
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
