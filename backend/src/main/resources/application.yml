@@ -58,7 +58,7 @@ app:
     cookie-domain: ${COOKIE_DOMAIN:}
     cookie-same-site: ${COOKIE_SAME_SITE:None}
 
-  csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 management:
   endpoints:
