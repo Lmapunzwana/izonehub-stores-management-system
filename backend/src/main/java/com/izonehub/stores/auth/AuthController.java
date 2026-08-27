@@ -151,24 +151,31 @@ public class AuthController {
     // ── POST /api/auth/change-password ────────────────────────────────────────
 
     @PostMapping("/change-password")
-    public void changePassword(@AuthenticationPrincipal String email,
-                               @Valid @RequestBody AuthDtos.ChangePasswordRequest req,
-                               HttpServletResponse response) {
+    public Map<String, String> changePassword(@AuthenticationPrincipal String email,
+                                              @Valid @RequestBody AuthDtos.ChangePasswordRequest req,
+                                              HttpServletResponse response) {
+        if (email == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
         AppUser user = users.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        if (!encoder.matches(req.currentPassword(), user.getPasswordHash()))
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Current password is incorrect");
+        if (!encoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
 
-        if (!policy.isValid(req.newPassword()))
+        if (!policy.isValid(req.newPassword())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Password must be 8+ characters with a digit and special character");
+                    "Password must be 8+ characters with an uppercase letter, digit and special character");
+        }
 
         user.changePassword(encoder.encode(req.newPassword()));
         users.save(user);
 
         writeTokenCookie(response, ACCESS_COOKIE,  jwt.issueAccessToken(user),  15 * 60);
         writeTokenCookie(response, REFRESH_COOKIE, jwt.issueRefreshToken(user), 7 * 24 * 60 * 60);
+
+        return Map.of("message", "Password changed successfully");
     }
 
     // ── POST /api/auth/forgot-password ───────────────────────────────────────
@@ -187,36 +194,10 @@ public class AuthController {
     public Map<String, String> resetPassword(@Valid @RequestBody AuthDtos.ResetPasswordRequest req) {
         if (!policy.isValid(req.newPassword()))
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Password must be 8+ characters with a digit and special character");
+                    "Password must be 8+ characters with an uppercase letter, digit and special character");
 
         resetService.consumeToken(req.token(), encoder.encode(req.newPassword()));
         return Map.of("message", "Password reset successfully");
-    }
-
-    // ── POST /api/auth/change-password ───────────────────────────────────────
-
-    @PostMapping("/change-password")
-    public Map<String, String> changePassword(@Valid @RequestBody AuthDtos.ChangePasswordRequest req,
-                                              @AuthenticationPrincipal String email) {
-        if (email == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-        AppUser user = users.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-
-        if (!encoder.matches(req.currentPassword(), user.getPasswordHash())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
-        }
-
-        if (!policy.isValid(req.newPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Password must be 8+ characters with a digit and special character");
-        }
-
-        user.changePassword(encoder.encode(req.newPassword()));
-        users.save(user);
-
-        return Map.of("message", "Password changed successfully");
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
