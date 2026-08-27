@@ -26,7 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     /** Comma-separated list of allowed CORS origins, e.g. "https://stores.nvs.co.zw" */
-    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:https://stores.nsv.co.zw,https://izonehub-stores-management-system.pages.dev,http://localhost:3000}")
     private String corsAllowedOrigins;
 
     @Value("${app.csp}")
