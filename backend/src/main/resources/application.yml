@@ -56,7 +56,7 @@ app:
     trust-proxy: ${TRUST_PROXY:false}
     cookie-secure: ${COOKIE_SECURE:true}
     cookie-domain: ${COOKIE_DOMAIN:}
-    cookie-same-site: Strict
+    cookie-same-site: ${COOKIE_SAME_SITE:None}
 
   csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
