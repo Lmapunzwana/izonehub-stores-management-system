@@ -63,6 +63,7 @@ const NAV_GROUPS = [
       { label: "Users",             path: "/users",           icon: Users,           badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
       { label: "Employees",         path: "/employees",       icon: UserCog,         badge: null },
       { label: "Subscription",      path: "/subscription",    icon: CreditCard,      badge: null,              roles: ["SYSTEM_ADMINISTRATOR"] },
+      { label: "System Reset",      path: "/system-reset",    icon: AlertOctagon,    badge: null,              roles: ["SYSTEM_ADMINISTRATOR"] },
       { label: "Audit Log",         path: "/audit-log",       icon: FileText,        badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
       { label: "Reports",           path: "/reports",         icon: BarChart3,       badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
     ],
