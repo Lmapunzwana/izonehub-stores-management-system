@@ -1,3 +1,3 @@
 # Cloudflare Pages _redirects file
 # Proxies all /api/* requests to the Spring Boot backend running on K3s
-/api/*  https://api.stores.nsv.co.zw/api/:splat  200
+/api/*  https://api-stores.nsv.co.zw/api/:splat  200

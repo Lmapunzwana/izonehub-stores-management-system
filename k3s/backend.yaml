@@ -70,10 +70,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.stores.nsv.co.zw
+        - api-stores.nsv.co.zw
       secretName: stores-backend-tls
   rules:
-    - host: api.stores.nsv.co.zw
+    - host: api-stores.nsv.co.zw
       http:
         paths:
           - path: /

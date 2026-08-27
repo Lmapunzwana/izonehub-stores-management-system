@@ -21,7 +21,7 @@ const CSRF_EXEMPT_PATHS = [
   "/api/auth/reset-password",
 ];
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api.stores.nsv.co.zw";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api-stores.nsv.co.zw";
 
 export async function apiFetch(url, options = {}) {
   const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
