@@ -276,7 +276,7 @@ export default function UsersPage() {
                         {busyId === u.id ? "Unlocking…" : "Unlock"}
                       </button>
                     )}
-                    {u.active && (
+                    {u.active && !u.roles.includes("SYSTEM_ADMINISTRATOR") && (
                       <button
                         className="btn btn-danger"
                         disabled={busyId === u.id}

@@ -85,6 +85,9 @@ public class UserController {
     public AppUser deactivate(@PathVariable UUID id) {
         AppUser u = users.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (u.getRoles().contains(Role.SYSTEM_ADMINISTRATOR)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "System Administrator accounts cannot be deactivated.");
+        }
         u.deactivate();
         return users.save(u);
     }
