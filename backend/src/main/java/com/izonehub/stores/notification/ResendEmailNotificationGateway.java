@@ -49,6 +49,11 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
 
     @Override
     public void send(AppUser user, String subject, String message) {
+        sendWithAttachments(user, subject, message, null);
+    }
+
+    @Override
+    public void sendWithAttachments(AppUser user, String subject, String message, java.util.List<EmailAttachment> attachments) {
         if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
             log.warn("Resend: skipping email — recipient has no email address");
             return;
@@ -61,28 +66,44 @@ public class ResendEmailNotificationGateway implements EmailNotificationGateway 
         // Build an HTML body for a nicer look in email clients
         String htmlBody = EmailTemplateHelper.buildHtmlEmail(user.getFullName(), subject, message);
 
-        // JSON payload — Resend accepts "html" and "text" fields
-        String jsonPayload = "{"
-                + "\"from\": " + jsonString(fromAddress) + ","
-                + "\"to\": [" + jsonString(user.getEmail()) + "],"
-                + "\"subject\": " + jsonString(subject) + ","
-                + "\"html\": " + jsonString(htmlBody) + ","
-                + "\"text\": " + jsonString(message)
-                + "}";
+        // JSON payload — Resend accepts "html", "text", and "attachments" fields
+        StringBuilder jsonPayload = new StringBuilder();
+        jsonPayload.append("{")
+                .append("\"from\": ").append(jsonString(fromAddress)).append(",")
+                .append("\"to\": [").append(jsonString(user.getEmail())).append("],")
+                .append("\"subject\": ").append(jsonString(subject)).append(",")
+                .append("\"html\": ").append(jsonString(htmlBody)).append(",")
+                .append("\"text\": ").append(jsonString(message));
+
+        if (attachments != null && !attachments.isEmpty()) {
+            jsonPayload.append(",\"attachments\": [");
+            for (int i = 0; i < attachments.size(); i++) {
+                EmailAttachment att = attachments.get(i);
+                if (i > 0) jsonPayload.append(",");
+                String b64 = java.util.Base64.getEncoder().encodeToString(att.content());
+                jsonPayload.append("{")
+                        .append("\"filename\": ").append(jsonString(att.filename())).append(",")
+                        .append("\"content\": ").append(jsonString(b64))
+                        .append("}");
+            }
+            jsonPayload.append("]");
+        }
+        jsonPayload.append("}");
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(RESEND_API_URL))
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(25))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload.toString()))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                log.debug("Resend email sent to {} — subject: {}", user.getEmail(), subject);
+                log.info("Resend email (attachments: {}) sent to {} — subject: {}",
+                        attachments != null ? attachments.size() : 0, user.getEmail(), subject);
             } else {
                 log.error("Resend API error {} for {}: {}", response.statusCode(), user.getEmail(), response.body());
             }
