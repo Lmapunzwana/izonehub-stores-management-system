@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { KeyRound, CheckCircle2, ShieldAlert } from "lucide-react";
+import { KeyRound, CheckCircle2, ShieldAlert, Check, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { apiFetch } from "../api";
+
+const PASSWORD_REQUIREMENTS = [
+  { id: "length",  label: "At least 8 characters", test: (p) => p.length >= 8 },
+  { id: "upper",   label: "At least 1 uppercase letter (A-Z)", test: (p) => /[A-Z]/.test(p) },
+  { id: "number",  label: "At least 1 number (0-9)", test: (p) => /[0-9]/.test(p) },
+  { id: "special", label: "At least 1 special character (!@#$%^&*)", test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
@@ -106,10 +114,29 @@ export default function ChangePasswordPage() {
             <input
               className="input"
               type="password"
-              placeholder="At least 8 characters with digits & symbols"
+              placeholder="e.g. NewPass123!"
               value={newPassword}
+              onFocus={() => setPasswordTouched(true)}
+              onBlur={() => setPasswordTouched(true)}
               onChange={(e) => setNewPassword(e.target.value)}
             />
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+              {PASSWORD_REQUIREMENTS.map((req) => {
+                const pass = req.test(newPassword);
+                const active = passwordTouched || newPassword.length > 0;
+                const color = !active ? "#64748b" : pass ? "#16a34a" : "#dc2626";
+                return (
+                  <div key={req.id} style={{ display: "flex", alignItems: "center", gap: 6, color, fontWeight: active && !pass ? 600 : 400 }}>
+                    {active ? (
+                      pass ? <Check size={14} color="#16a34a" /> : <X size={14} color="#dc2626" />
+                    ) : (
+                      <span style={{ width: 14, textAlign: "center", opacity: 0.5 }}>•</span>
+                    )}
+                    {req.label}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div>
