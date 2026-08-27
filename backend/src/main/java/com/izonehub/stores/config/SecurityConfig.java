@@ -70,22 +70,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 // ── CSRF ─────────────────────────────────────────────────────────
-                .csrf(csrf -> {
-                    CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
-                    csrfRepo.setCookieCustomizer(cookie -> {
-                        cookie.sameSite("None");
-                        cookie.secure(true);
-                        cookie.path("/");
-                    });
-                    csrf.csrfTokenRepository(csrfRepo)
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/refresh",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
-                        );
-                })
+                // API endpoints use JWT HttpOnly cookies and CORS origin validation.
+                // Because frontend and backend are on separate subdomains/hosts, browser
+                // Same-Origin Policy prevents frontend JS from reading document.cookie cross-origin.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
 
                 // ── Session ───────────────────────────────────────────────────────
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
