@@ -131,9 +131,9 @@ public class MaterialRequestController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public void delete(@PathVariable UUID id) {
-        MaterialRequest mr = repo.findById(id)
+        MaterialRequest mr = requests.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        repo.delete(mr);
+        requests.delete(mr);
     }
 
     @PostMapping

@@ -25,6 +25,9 @@ import java.util.*;
 @RequestMapping("/api/items")
 public class ItemController {
 
+    private final ItemRepository repo;
+    private final com.izonehub.stores.user.UserRepository users;
+    private final com.izonehub.stores.store.StoreRepository stores;
     private final com.izonehub.stores.inventory.InventoryCommandService inventoryService;
 
     public ItemController(ItemRepository repo, com.izonehub.stores.user.UserRepository users, 
