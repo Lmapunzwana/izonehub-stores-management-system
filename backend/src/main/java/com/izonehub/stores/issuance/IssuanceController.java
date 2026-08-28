@@ -57,9 +57,12 @@ public class IssuanceController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<MaterialIssueVoucher> list(@RequestParam(defaultValue = "0")  int page,
                                            @RequestParam(defaultValue = "20") int size,
-                                           @RequestParam(required = false)    UUID projectId) {
+                                           @RequestParam(required = false)    UUID projectId,
+                                           @AuthenticationPrincipal String email) {
+        java.util.List<UUID> allowedStoreIds = siteManagerAllowedStoreIds(email);
         var all = mivs.findAll().stream()
                 .filter(m -> projectId == null || m.getProject().getId().equals(projectId))
+                .filter(m -> allowedStoreIds == null || allowedStoreIds.contains(m.getStore().getId()))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
         all.forEach(this::resolveLazy);
@@ -70,10 +73,33 @@ public class IssuanceController {
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
-    public MaterialIssueVoucher get(@PathVariable UUID id) {
+    public MaterialIssueVoucher get(@PathVariable UUID id, @AuthenticationPrincipal String email) {
         MaterialIssueVoucher miv = mivs.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requireStoreAccess(email, miv.getStore().getId());
         resolveLazy(miv);
         return miv;
+    }
+
+    /**
+     * Site managers may only act on their own store(s) — see
+     * {@code StoreController.findStoresForUser}. Returns null for
+     * admins/central managers (meaning "no restriction").
+     */
+    private java.util.List<UUID> siteManagerAllowedStoreIds(String email) {
+        AppUser user = users.findByEmail(email).orElse(null);
+        if (user == null) return java.util.List.of();
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (!isSiteManager) return null;
+        return stores.findStoresForUser(user.getId()).stream().map(Store::getId).toList();
+    }
+
+    private void requireStoreAccess(String email, UUID storeId) {
+        java.util.List<UUID> allowed = siteManagerAllowedStoreIds(email);
+        if (allowed != null && !allowed.contains(storeId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only act on your own assigned store.");
+        }
     }
 
     /**
@@ -102,7 +128,8 @@ public class IssuanceController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         Store store = stores.findById(req.storeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store not found"));
-        
+        requireStoreAccess(email, store.getId());
+
         if (!store.isActive() || store.isClosing()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot issue items from a closed or closing store");
         }
@@ -135,6 +162,7 @@ public class IssuanceController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         MaterialIssueVoucher miv = mivs.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requireStoreAccess(email, miv.getStore().getId());
         if (req.lines() == null || req.lines().isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one return line is required");
 

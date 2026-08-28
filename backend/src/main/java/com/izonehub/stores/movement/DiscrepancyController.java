@@ -1,11 +1,14 @@
 package com.izonehub.stores.movement;
 
 import com.izonehub.stores.inventory.InventoryCommandService;
+import com.izonehub.stores.store.Store;
+import com.izonehub.stores.store.StoreRepository;
 import com.izonehub.stores.user.AppUser;
 import com.izonehub.stores.user.UserRepository;
 import com.izonehub.stores.audit.AuditLogService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,14 +25,37 @@ public class DiscrepancyController {
 
     private final DiscrepancyRepository discrepancies;
     private final UserRepository users;
+    private final StoreRepository stores;
     private final InventoryCommandService inventory;
     private final AuditLogService auditLog;
 
-    public DiscrepancyController(DiscrepancyRepository discrepancies, UserRepository users, InventoryCommandService inventory, AuditLogService auditLog) {
+    public DiscrepancyController(DiscrepancyRepository discrepancies, UserRepository users, StoreRepository stores,
+                                 InventoryCommandService inventory, AuditLogService auditLog) {
         this.discrepancies = discrepancies;
         this.users = users;
+        this.stores = stores;
         this.inventory = inventory;
         this.auditLog = auditLog;
+    }
+
+    /** The store a discrepancy is "against" — it's never a direct field, only reachable via whichever of receipt/GRN/return/count raised it. */
+    private Store storeOf(Discrepancy d) {
+        if (d.getReceipt() != null) return d.getReceipt().getMaterialRequest().getSourceStore();
+        if (d.getGrn() != null) return d.getGrn().getExpectedReceipt().getStore();
+        if (d.getStockCount() != null) return d.getStockCount().getStore();
+        if (d.getStockReturn() != null) return d.getStockReturn().getStore();
+        return null;
+    }
+
+    /** See IssuanceController for the identical site-manager scoping pattern. */
+    private java.util.List<UUID> siteManagerAllowedStoreIds(String email) {
+        AppUser user = users.findByEmail(email).orElse(null);
+        if (user == null) return java.util.List.of();
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (!isSiteManager) return null;
+        return stores.findStoresForUser(user.getId()).stream().map(Store::getId).toList();
     }
 
     @GetMapping
@@ -37,19 +63,42 @@ public class DiscrepancyController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<Discrepancy> list(@RequestParam(defaultValue = "0")  int page,
                                   @RequestParam(defaultValue = "20") int size,
-                                  @RequestParam(required = false)    String status) {
-        var pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
-        if (status != null) {
-            return discrepancies.findByStatus(DiscrepancyStatus.valueOf(status.toUpperCase()), pageable);
+                                  @RequestParam(required = false)    String status,
+                                  @AuthenticationPrincipal String email) {
+        java.util.List<UUID> allowedStoreIds = siteManagerAllowedStoreIds(email);
+        if (allowedStoreIds == null) {
+            // Admin/central: no restriction, use the efficient paged/EntityGraph query directly.
+            var pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
+            if (status != null) {
+                return discrepancies.findByStatus(DiscrepancyStatus.valueOf(status.toUpperCase()), pageable);
+            }
+            return discrepancies.findAll(pageable);
         }
-        return discrepancies.findAll(pageable);
+
+        // Site manager: the store is only reachable via a lazy chain, not a query-able column,
+        // so this has to filter in memory rather than push the restriction into the query.
+        var all = discrepancies.findAll(PageRequest.of(0, Integer.MAX_VALUE, org.springframework.data.domain.Sort.by("createdAt").descending()))
+                .stream()
+                .filter(d -> status == null || d.getStatus() == DiscrepancyStatus.valueOf(status.toUpperCase()))
+                .filter(d -> { Store s = storeOf(d); return s != null && allowedStoreIds.contains(s.getId()); })
+                .toList();
+        int total = all.size(), from = Math.min(page * size, total), to = Math.min(from + size, total);
+        return new PageImpl<>(all.subList(from, to), PageRequest.of(page, size), total);
     }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
-    public Discrepancy get(@PathVariable UUID id) {
-        return discrepancies.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    public Discrepancy get(@PathVariable UUID id, @AuthenticationPrincipal String email) {
+        Discrepancy d = discrepancies.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        java.util.List<UUID> allowed = siteManagerAllowedStoreIds(email);
+        if (allowed != null) {
+            Store s = storeOf(d);
+            if (s == null || !allowed.contains(s.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only view discrepancies for your own store.");
+            }
+        }
+        return d;
     }
 
     /** See IssuanceController for why this is necessary with open-in-view=false. */

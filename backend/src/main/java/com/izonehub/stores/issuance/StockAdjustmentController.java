@@ -50,10 +50,13 @@ public class StockAdjustmentController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     public Page<StockAdjustment> list(@RequestParam(defaultValue = "0")  int page,
                                       @RequestParam(defaultValue = "20") int size,
-                                      @RequestParam(required = false)    Boolean pendingCountersignature) {
+                                      @RequestParam(required = false)    Boolean pendingCountersignature,
+                                      @AuthenticationPrincipal String email) {
+        java.util.List<UUID> allowedStoreIds = siteManagerAllowedStoreIds(email);
         var all = adjustments.findAll().stream()
                 .filter(a -> pendingCountersignature == null
                         || (pendingCountersignature == (a.isRequiresCountersignature() && !a.isCountersigned())))
+                .filter(a -> allowedStoreIds == null || allowedStoreIds.contains(a.getStore().getId()))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
         all.forEach(this::resolveLazy);
@@ -64,10 +67,29 @@ public class StockAdjustmentController {
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
-    public StockAdjustment get(@PathVariable UUID id) {
+    public StockAdjustment get(@PathVariable UUID id, @AuthenticationPrincipal String email) {
         StockAdjustment a = adjustments.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requireStoreAccess(email, a.getStore().getId());
         resolveLazy(a);
         return a;
+    }
+
+    /** See IssuanceController for the identical site-manager scoping pattern. */
+    private java.util.List<UUID> siteManagerAllowedStoreIds(String email) {
+        AppUser user = users.findByEmail(email).orElse(null);
+        if (user == null) return java.util.List.of();
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (!isSiteManager) return null;
+        return stores.findStoresForUser(user.getId()).stream().map(Store::getId).toList();
+    }
+
+    private void requireStoreAccess(String email, UUID storeId) {
+        java.util.List<UUID> allowed = siteManagerAllowedStoreIds(email);
+        if (allowed != null && !allowed.contains(storeId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only act on your own assigned store.");
+        }
     }
 
     /** See IssuanceController for why this is necessary with open-in-view=false. */
@@ -87,6 +109,7 @@ public class StockAdjustmentController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         Store store = stores.findById(req.storeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store not found"));
+        requireStoreAccess(email, store.getId());
         Item item = items.findById(req.itemId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found"));
         BigDecimal quantityBefore = inventoryRepo.findByStoreAndItem(store, item)

@@ -91,6 +91,18 @@ public class InventoryQueryController {
         )).toList();
     }
 
+    /** Same restriction /site-inventory already applies: a site manager may only act on their own store(s). */
+    private void requireStoreAccess(AppUser user, Store store) {
+        boolean isSiteManager = user.getRoles().contains(com.izonehub.stores.user.Role.SITE_STORE_MANAGER)
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.SYSTEM_ADMINISTRATOR)
+                                && !user.getRoles().contains(com.izonehub.stores.user.Role.CENTRAL_STORE_MANAGER);
+        if (!isSiteManager) return;
+        List<UUID> allowedIds = stores.findStoresForUser(user.getId()).stream().map(Store::getId).toList();
+        if (!allowedIds.contains(store.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only act on your own assigned store.");
+        }
+    }
+
     @PostMapping("/{inventoryId}/freeze")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
     @org.springframework.transaction.annotation.Transactional
@@ -100,7 +112,8 @@ public class InventoryQueryController {
         AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         StoreInventory inv = inventoryRepo.findById(inventoryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory row not found"));
-        
+        requireStoreAccess(user, inv.getStore());
+
         BigDecimal qty = (req.quantity() != null && req.quantity().compareTo(BigDecimal.ZERO) > 0) ? req.quantity() : inv.getQuantityOnHand();
         if (req.freeze()) {
             inventoryCommandService.freezeGrnVariance(inv.getStore(), inv.getItem(), qty);
@@ -122,6 +135,7 @@ public class InventoryQueryController {
         AppUser user = users.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         StoreInventory inv = inventoryRepo.findById(inventoryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory row not found"));
+        requireStoreAccess(user, inv.getStore());
         
         inventoryCommandService.adjustTo(inv.getStore(), inv.getItem(), req.newQuantity());
         auditLog.record("INVENTORY", inv.getId().toString(), "ADJUSTED",
