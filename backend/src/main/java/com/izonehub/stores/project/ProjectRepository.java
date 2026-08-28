@@ -25,6 +25,11 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     // be closed — only safe if no OTHER active project still uses it.
     boolean existsBySiteStoreIdAndActiveTrueAndIdNot(UUID siteStoreId, UUID excludeProjectId);
 
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query(value = "DELETE FROM project_employees", nativeQuery = true)
+    void clearProjectEmployeesForReset();
+
     @org.springframework.data.jpa.repository.Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.siteStore s LEFT JOIN p.assignedEmployees emp WHERE p.active = true AND (s.manager.id = :userId OR s.id IN (SELECT u.assignedStore.id FROM com.izonehub.stores.user.AppUser u WHERE u.id = :userId AND u.assignedStore IS NOT NULL) OR emp.id = :userId)")
     java.util.List<Project> findProjectsForUser(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

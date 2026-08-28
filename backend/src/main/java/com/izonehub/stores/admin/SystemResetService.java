@@ -152,9 +152,10 @@ public class SystemResetService {
         lowStockThresholds.deleteAllInBatch();
 
         // 9. Project (references Store; ManyToMany join table project_employees
-        //    is cleared automatically when the owning Project rows are removed).
+        //    must be cleared explicitly before bulk deleting projects).
         //    Everything that references Project (MaterialIssueVoucher,
         //    MaterialRequest) is already gone by this point.
+        projects.clearProjectEmployeesForReset();
         projects.deleteAllInBatch();
 
         // 10. Store (referenced by everything above; all of that is gone now).
