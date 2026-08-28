@@ -17,10 +17,6 @@ docker push ghcr.io/lmapunzwana/stores-management-system/backend:latest
 echo "--> Restarting backend deployment on Kubernetes..."
 kubectl rollout restart deployment stores-backend
 
-echo "--> Building frontend production bundle..."
-cd frontend
-npm run build
-cd ..
 
 echo "=========================================="
 echo "  Deployment completed successfully!"

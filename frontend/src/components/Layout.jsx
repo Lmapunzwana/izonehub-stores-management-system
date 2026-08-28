@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAppData } from '../context/AppDataContext'
 
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, API_BASE } from '../api'
+import { apiFetch } from '../api'
 
 import {
   LayoutDashboard,
@@ -144,7 +144,7 @@ export default function Layout({ children }) {
           Resources
         </div>
         <a
-          href={`${API_BASE}/api/resources/training-videos`}
+          href="https://media.nsv.co.zw/training/NSV_Stores_Training_Videos.zip"
           className="nav-link"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >

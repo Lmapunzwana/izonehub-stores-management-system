@@ -22,7 +22,6 @@ const CSRF_EXEMPT_PATHS = [
 ];
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api-stores.nsv.co.zw";
-export { API_BASE };
 
 export async function apiFetch(url, options = {}) {
   const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
