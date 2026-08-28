@@ -58,6 +58,26 @@ public class EmailTemplateHelper {
         return logoBase64;
     }
 
+    private static String convertUrlsToLinks(String text) {
+        if (text == null) return "";
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(https?://[a-zA-Z0-9.\\-_~:/?#@!$&'()*+,;=]+)");
+        java.util.regex.Matcher matcher = pattern.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String url = matcher.group(1);
+            String cleanUrl = url;
+            String trailingPunct = "";
+            if (cleanUrl.endsWith(".") || cleanUrl.endsWith(")")) {
+                trailingPunct = cleanUrl.substring(cleanUrl.length() - 1);
+                cleanUrl = cleanUrl.substring(0, cleanUrl.length() - 1);
+            }
+            String replacement = "<a href=\"" + cleanUrl + "\" target=\"_blank\" style=\"color: #0284c7; text-decoration: underline; font-weight: 600;\">" + cleanUrl + "</a>" + trailingPunct;
+            matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
     public static String buildHtmlEmail(String recipientName, String subject, String body) {
         return buildHtmlEmail(recipientName, subject, body, "https://stores.nsv.co.zw/logo.jpeg");
     }
@@ -66,7 +86,9 @@ public class EmailTemplateHelper {
         String safeBody = body
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
-                .replace(">", "&gt;")
+                .replace(">", "&gt;");
+
+        safeBody = convertUrlsToLinks(safeBody)
                 .replace("\n", "<br>");
         String safeName = recipientName != null ? recipientName : "User";
         String safeLogoUrl = logoUrl != null && !logoUrl.isBlank() ? logoUrl : "https://stores.nsv.co.zw/logo.jpeg";
