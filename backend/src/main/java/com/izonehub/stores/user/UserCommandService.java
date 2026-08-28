@@ -73,7 +73,7 @@ public class UserCommandService {
                     + "1. PDF USER GUIDE (SEE ATTACHMENT BELOW)\n"
                     + "Please see the attached document ('NSV_Stores_User_Guide.pdf') at the bottom of this email. It contains step-by-step documentation covering store navigation, material requests, dispatches, receiving items, stock counts, and system management.\n\n"
                     + "2. VIDEO TRAINING TUTORIALS\n"
-                    + "To understand daily workflows in depth, please review the video tutorials provided in your onboarding training package ('NSV_Stores_Training_Videos.zip'):\n"
+                    + "The training video package ('NSV_Stores_Training_Videos.zip') is too large to attach here. Once you've logged in, click 'Training Videos' in the left-hand sidebar to download it directly:\n"
                     + "  - Site Store Managers: Watch videos on requesting materials, receiving shipments, and logging daily material consumption.\n"
                     + "  - Central Store Managers: Watch videos on item catalog setup, expected receipts, MIV approval, and dispatching.\n\n"
                     + "If you have any questions or require support, please reach out to your system administrator.\n\n"

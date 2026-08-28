@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAppData } from '../context/AppDataContext'
 
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch, API_BASE } from '../api'
 
 import {
   LayoutDashboard,
@@ -20,7 +20,8 @@ import {
   UserCog,
   CreditCard,
   FileText,
-  BarChart3
+  BarChart3,
+  Download
 } from 'lucide-react'
 
 // Nav link groups, shown with visual section separators.
@@ -138,6 +139,18 @@ export default function Layout({ children }) {
             </div>
           );
         })}
+
+        <div style={{ padding: '8px 16px 4px 16px', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#94a3b8', textTransform: 'uppercase' }}>
+          Resources
+        </div>
+        <a
+          href={`${API_BASE}/api/resources/training-videos`}
+          className="nav-link"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Download size={18} />
+          <span>Training Videos</span>
+        </a>
       </aside>
 
       <div className="content-shell">
