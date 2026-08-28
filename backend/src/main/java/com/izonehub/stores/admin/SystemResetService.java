@@ -106,16 +106,17 @@ public class SystemResetService {
 
     @Transactional
     public void resetToCleanSlate(String performedByEmail) {
-        // 1. Break the two circular FKs (Store.manager <-> AppUser.assignedStore,
-        //    AppUser.createdBy self-reference) before anything is deleted.
-        List<AppUser> allUsers = users.findAll();
-        for (AppUser u : allUsers) {
-            u.setAssignedStore(null);
-        }
-        users.saveAll(allUsers);
-        // createdBy has no public setter by design (it's an immutable audit field),
-        // so we clear it with a bulk update rather than adding a mutator for a
-        // one-off reset path.
+        // 1. Break all three circular/self-referencing FKs — Store.manager,
+        //    AppUser.assignedStore, AppUser.createdBy — via bulk updates
+        //    before anything is loaded or deleted. Each is clearAutomatically
+        //    = true, which evicts the persistence context immediately after
+        //    it runs: nothing loaded here can carry a stale in-memory
+        //    reference into the deletes below (see the Javadoc on each
+        //    repository method for why that matters — this is what a prior
+        //    version of this method got wrong, causing a
+        //    TransientObjectException when it reached step 13).
+        stores.detachManagersForReset();
+        users.detachAssignedStoresForReset();
         users.detachCreatedByForReset();
 
         // 2. Leaf records that reference AppUser only.
