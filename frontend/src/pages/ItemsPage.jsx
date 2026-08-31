@@ -67,12 +67,21 @@ export default function ItemsPage() {
   const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
 
   function handlePurgeItem(id, name) {
-    if (!isAdmin) return;
-    if (window.confirm(`Are you sure you want to permanently delete item "${name}"? This action cannot be undone.`)) {
-      apiFetch(`/api/items/${id}/purge`, { method: "DELETE" })
-        .then(() => refreshItems())
-        .catch((err) => showAlert({ title: "Delete Failed", message: err?.message || "Failed to delete item", type: "danger" }));
-    }
+    if (!isAdmin && !isCentral) return;
+    showConfirm({
+      title: "Permanently Delete Item",
+      message: `Permanently delete "${name}"? This removes it and all its catalog data from the database. This action cannot be undone. Use Deactivate instead if you just want to hide it.`,
+      type: "danger",
+      confirmText: "Yes, Delete Permanently",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/api/items/${id}/purge`, { method: "DELETE" });
+          await refreshItems();
+        } catch (err) {
+          showAlert({ title: "Delete Failed", message: err?.message || "Failed to delete item", type: "danger" });
+        }
+      },
+    });
   }
 
   function handleDeactivateItem(id, name) {
@@ -592,13 +601,13 @@ export default function ItemsPage() {
                           Deactivate
                         </button>
                       )}
-                      {isAdmin && (
+                      {(isAdmin || isCentral) && (
                         <button
                           type="button"
                           className="ch-btn ch-btn--danger"
                           onClick={() => handlePurgeItem(item.id, item.name)}
                           style={{ fontSize: 12, padding: "4px 8px" }}
-                          title="Permanently delete item"
+                          title="Permanently delete item from database"
                         >
                           <Trash2 size={13} />
                           Delete
