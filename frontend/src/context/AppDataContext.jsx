@@ -209,6 +209,27 @@ export function AppDataProvider({ children }) {
     }
   }
 
+  async function updateItem(id, itemPayload) {
+    try {
+      await apiFetch(`/api/items/${id}`, { method: "PUT", body: itemPayload });
+      await refreshItems();
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  /** Soft-delete: marks the item inactive but keeps its history intact. Distinct from the admin-only hard "purge". */
+  async function deactivateItem(id) {
+    try {
+      await apiFetch(`/api/items/${id}`, { method: "DELETE" });
+      await refreshItems();
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
   async function consumeItems(storeId, lines) {
     try {
       // lines may include { itemId, quantity, consumedAt, notes } — the API
@@ -227,6 +248,20 @@ export function AppDataProvider({ children }) {
   async function addStore(storePayload) {
     try {
       await apiFetch("/api/stores", { method: "POST", body: storePayload });
+      const [openStoresResponse, closedStoresResponse] = await Promise.all([
+        apiFetch("/api/stores?size=200&active=true").catch(() => ({ content: [] })),
+        apiFetch("/api/stores?size=200&active=false").catch(() => ({ content: [] })),
+      ]);
+      setStores([...asList(openStoresResponse), ...asList(closedStoresResponse)]);
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  async function updateStore(id, storePayload) {
+    try {
+      await apiFetch(`/api/stores/${id}`, { method: "PUT", body: storePayload });
       const [openStoresResponse, closedStoresResponse] = await Promise.all([
         apiFetch("/api/stores?size=200&active=true").catch(() => ({ content: [] })),
         apiFetch("/api/stores?size=200&active=false").catch(() => ({ content: [] })),
@@ -842,6 +877,8 @@ export function AppDataProvider({ children }) {
     refreshItems,
     refreshAll,
     addItem,
+    updateItem,
+    deactivateItem,
     expectedReceipts,
     addExpectedReceipt,
     advanceReceiptStatus,
@@ -868,6 +905,7 @@ export function AppDataProvider({ children }) {
     removeEmployeeFromProject,
     stores,
     addStore,
+    updateStore,
     users,
     addUser,
     stockCounts,

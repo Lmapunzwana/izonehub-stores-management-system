@@ -7,10 +7,13 @@ import { useAppModal } from "../context/ModalContext";
 import { apiFetch } from "../api";
 
 export default function StoresPage() {
-  const { stores, addStore, refreshItems, users, user } = useAppData();
+  const { stores, addStore, updateStore, refreshItems, users, user } = useAppData();
   const { showConfirm, showAlert } = useAppModal();
   const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
+  const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
+  const canEditStores = isAdmin || isCentral;
   const [showForm, setShowForm] = useState(false);
+  const [editingStoreId, setEditingStoreId] = useState(null); // null = "add" mode, else "edit" mode
   const [newStore, setNewStore] = useState({ name: "", type: "SITE", location: "", managerId: "" });
   const [error, setError] = useState(null);
   const [savingStore, setSavingStore] = useState(false);
@@ -20,8 +23,12 @@ export default function StoresPage() {
   const [savingManager, setSavingManager] = useState(false);
 
   useEffect(() => {
-    apiFetch("/api/subscription").then(setSub).catch(() => {});
-  }, []);
+    // Admin/central-only on the backend — see the identical fix in
+    // Dashboard.jsx for why this must be gated.
+    if (isAdmin || isCentral) {
+      apiFetch("/api/subscription").then(setSub).catch(() => {});
+    }
+  }, [isAdmin, isCentral]);
 
   const operationalCount = sub?.operationalCount ?? stores.filter(s => s.active).length;
   const allowedSlots     = sub?.allowedStoreSlots ?? 0;
@@ -34,25 +41,50 @@ export default function StoresPage() {
       setError("Name, Location, and Manager are required.");
       return;
     }
-    if (atCapacity) {
+    if (!editingStoreId && atCapacity) {
       setError(`Store capacity reached (${operationalCount}/${allowedSlots}). Increase your subscription limit first.`);
       return;
     }
     setSavingStore(true);
     try {
-      await addStore({
+      const payload = {
         name:      newStore.name,
         type:      newStore.type,
         location:  newStore.location,
         managerId: newStore.managerId,
-      });
+      };
+      if (editingStoreId) {
+        await updateStore(editingStoreId, payload);
+      } else {
+        await addStore(payload);
+      }
       setNewStore({ name: "", type: "SITE", location: "", managerId: "" });
+      setEditingStoreId(null);
       setShowForm(false);
     } catch (e) {
-      setError(e.message || "Failed to add store.");
+      setError(e.message || (editingStoreId ? "Failed to update store." : "Failed to add store."));
     } finally {
       setSavingStore(false);
     }
+  }
+
+  function startEdit(store) {
+    setEditingStoreId(store.id);
+    setNewStore({
+      name: store.name,
+      type: store.type,
+      location: store.location,
+      managerId: store.manager?.id || "",
+    });
+    setError(null);
+    setShowForm(true);
+  }
+
+  function cancelForm() {
+    setShowForm(false);
+    setEditingStoreId(null);
+    setNewStore({ name: "", type: "SITE", location: "", managerId: "" });
+    setError(null);
   }
 
   async function updateManager(storeId) {
@@ -75,16 +107,19 @@ export default function StoresPage() {
 
   function initiateClosure(id) {
     showConfirm({
-      title: "Initiate Closure",
-      message: "Initiate closure for this store? No new operations will be allowed. All pending transactions must be resolved before it fully closes.",
+      title: "Close Store",
+      message: "If this store has no on-hand stock, it will close immediately. If it still holds stock, closure will be initiated and stock must be returned before it fully closes.",
       type: "warning",
       confirmText: "Yes, Close Store",
       onConfirm: async () => {
         try {
-          await apiFetch(`/api/stores/${id}/close`, { method: "POST" });
+          const result = await apiFetch(`/api/stores/${id}/close`, { method: "POST" });
+          if (result && !result.active && !result.closing) {
+            showAlert({ title: "Store Closed", message: "The store had no on-hand stock and was closed immediately.", type: "success" });
+          }
           window.location.reload();
         } catch (e) {
-          showAlert({ title: "Closure Failed", message: e.message || "Failed to initiate closure", type: "danger" });
+          showAlert({ title: "Closure Failed", message: e.message || "Failed to close store", type: "danger" });
         }
       },
     });
@@ -176,15 +211,20 @@ export default function StoresPage() {
               label: showForm ? "Close" : "Add Store",
               icon: <Plus size={16} />,
               variant: "primary",
-              onClick: () => setShowForm(v => !v),
-              disabled: atCapacity,
-              title: atCapacity ? "Store capacity reached" : undefined,
+              onClick: () => (showForm ? cancelForm() : setShowForm(true)),
+              disabled: !editingStoreId && atCapacity && !showForm,
+              title: !editingStoreId && atCapacity && !showForm ? "Store capacity reached" : undefined,
             },
           ]}
         />
 
         {showForm && (
           <div className="form-grid" style={{ marginBottom: 20 }}>
+            {editingStoreId && (
+              <div className="full" style={{ fontWeight: 600, color: "#0f172a", marginBottom: 4 }}>
+                Editing store
+              </div>
+            )}
             {error && (
               <div className="full" style={{ color: "#dc2626", background: "#fee2e2", padding: "8px 12px", borderRadius: 6, fontSize: 13 }}>
                 {error}
@@ -235,9 +275,9 @@ export default function StoresPage() {
 
             <div className="full actions-row">
               {error && !error.includes("capacity") && <span style={{ color: "#dc2626", marginRight: "auto" }}>{error}</span>}
-              <button className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={onSaveNewStore} disabled={atCapacity || savingStore}>
-                {savingStore ? "Saving…" : "Save Store"}
+              <button className="btn" onClick={cancelForm}>Cancel</button>
+              <button className="btn btn-primary" onClick={onSaveNewStore} disabled={(!editingStoreId && atCapacity) || savingStore}>
+                {savingStore ? "Saving…" : editingStoreId ? "Save Changes" : "Save Store"}
               </button>
             </div>
           </div>
@@ -319,7 +359,7 @@ export default function StoresPage() {
                       {s.active && !s.closing && (
                         <button className="ch-btn ch-btn--danger" onClick={() => initiateClosure(s.id)}>
                           <X size={14} />
-                          Initiate Closure
+                          Close Store
                         </button>
                       )}
                       {!s.active && !s.closing && (
@@ -333,6 +373,11 @@ export default function StoresPage() {
                       )}
                       {s.active && s.closing && (
                         <span style={{ color: "#f59e0b", fontWeight: 500, fontSize: 13 }}>Closing in progress</span>
+                      )}
+                      {canEditStores && (
+                        <button className="ch-btn ch-btn--outline" onClick={() => startEdit(s)} title="Edit store details">
+                          Edit
+                        </button>
                       )}
                       {isAdmin && (
                         <button className="ch-btn ch-btn--danger" onClick={() => deleteStore(s.id, s.name)} title="Permanently delete store">

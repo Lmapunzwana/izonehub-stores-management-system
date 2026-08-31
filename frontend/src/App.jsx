@@ -57,6 +57,11 @@ export default function App() {
                   <AddItemPage />
                 </RequireRole>
               } />
+              <Route path="/items/edit-item/:id" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <AddItemPage />
+                </RequireRole>
+              } />
               <Route path="/expected-receipts" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
                   <ExpectedReceiptsPage />

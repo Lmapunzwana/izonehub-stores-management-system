@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { X, Save, ChevronsUpDown, Package, CheckCircle2 } from "lucide-react";
 import { useAppData } from "../context/AppDataContext";
 import { apiFetch } from "../api";
@@ -12,7 +12,9 @@ const UNITS_OF_MEASURE = [
 
 export default function AddItemPage() {
   const navigate = useNavigate();
-  const { addItem, stores } = useAppData();
+  const { id: editId } = useParams(); // present only on /items/edit-item/:id
+  const isEditMode = Boolean(editId);
+  const { addItem, updateItem, stores } = useAppData();
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -23,6 +25,7 @@ export default function AddItemPage() {
     initialQuantity: "0",
     storeId: "",
   });
+  const [loadingExisting, setLoadingExisting] = useState(isEditMode);
 
   useEffect(() => {
     if (stores.length > 0 && !form.storeId) {
@@ -33,6 +36,29 @@ export default function AddItemPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+
+  // Edit mode: load the existing item's details to prefill the form.
+  // Code, initial quantity, and target store are creation-only concepts —
+  // the backend's update endpoint doesn't accept them, so they're not
+  // editable here (code field is disabled below; the stock-controls
+  // section is hidden entirely in edit mode).
+  useEffect(() => {
+    if (!isEditMode) return;
+    apiFetch(`/api/items/${editId}`)
+      .then((item) => {
+        setForm((f) => ({
+          ...f,
+          name: item.name || "",
+          code: item.code || "",
+          description: item.description || "",
+          category: item.category || "",
+          unit: item.unitOfMeasure || "Piece",
+          reorderPoint: String(item.reorderThreshold ?? 0),
+        }));
+      })
+      .catch(() => setError("Could not load this item."))
+      .finally(() => setLoadingExisting(false));
+  }, [isEditMode, editId]);
 
   // Load real categories from the backend
   useEffect(() => {
@@ -50,7 +76,7 @@ export default function AddItemPage() {
         setCategories(fallback);
         setForm((f) => ({ ...f, category: fallback[0] }));
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function update(field, value) {
@@ -67,8 +93,8 @@ export default function AddItemPage() {
 
     // Validation
     if (!form.name.trim()) { setError("Item Name is required."); return; }
-    if (!form.code.trim()) { setError("Item Code is required."); return; }
-    if (!form.category)    { setError("Category is required."); return; }
+    if (!isEditMode && !form.code.trim()) { setError("Item Code is required."); return; }
+    if (!form.category) { setError("Category is required."); return; }
     if (!form.unit.trim()) { setError("Unit of Measure is required."); return; }
 
     const threshold = parseFloat(form.reorderPoint);
@@ -77,19 +103,30 @@ export default function AddItemPage() {
       return;
     }
 
-    const initialQty = parseFloat(form.initialQuantity) || 0;
     setSaving(true);
     try {
-      await addItem({
-        name:             form.name.trim(),
-        code:             form.code.trim().toUpperCase(),
-        description:      form.description.trim() || null,
-        unitOfMeasure:    form.unit,
-        category:         form.category.toUpperCase(),
-        reorderThreshold: threshold,
-        initialQuantity:  initialQty,
-        storeId:          initialQty > 0 ? form.storeId : null,
-      });
+      if (isEditMode) {
+        await updateItem(editId, {
+          name: form.name.trim(),
+          code: form.code.trim().toUpperCase(),
+          description: form.description.trim() || null,
+          unitOfMeasure: form.unit,
+          category: form.category.toUpperCase(),
+          reorderThreshold: threshold,
+        });
+      } else {
+        const initialQty = parseFloat(form.initialQuantity) || 0;
+        await addItem({
+          name: form.name.trim(),
+          code: form.code.trim().toUpperCase(),
+          description: form.description.trim() || null,
+          unitOfMeasure: form.unit,
+          category: form.category.toUpperCase(),
+          reorderThreshold: threshold,
+          initialQuantity: initialQty,
+          storeId: initialQty > 0 ? form.storeId : null,
+        });
+      }
       setSaved(true);
       setTimeout(() => navigate("/items"), 800);
     } catch (err) {
@@ -98,11 +135,15 @@ export default function AddItemPage() {
         err?.message ||
         err?.error ||
         (typeof err === "string" ? err : null) ||
-        "Failed to save item. The code might already exist.";
+        (isEditMode ? "Failed to save changes." : "Failed to save item. The code might already exist.");
       setError(msg);
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadingExisting) {
+    return <div className="page"><div className="card">Loading item…</div></div>;
   }
 
   return (
@@ -116,7 +157,7 @@ export default function AddItemPage() {
           }}>
             <Package size={18} color="#fff" />
           </span>
-          <h2 className="card-title" style={{ margin: 0 }}>Add New Item</h2>
+          <h2 className="card-title" style={{ margin: 0 }}>{isEditMode ? "Edit Item" : "Add New Item"}</h2>
         </div>
 
         <h3 className="card-title" style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>
@@ -133,15 +174,16 @@ export default function AddItemPage() {
             />
           </div>
           <div>
-            <label>Item Code <span style={{ color: "#dc2626" }}>*</span></label>
+            <label>Item Code {!isEditMode && <span style={{ color: "#dc2626" }}>*</span>}</label>
             <input
               className="input"
               placeholder="e.g. CEM-50KG"
               value={form.code}
+              disabled={isEditMode}
               onChange={(e) => update("code", e.target.value)}
             />
             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-              Unique identifier — will be converted to uppercase
+              {isEditMode ? "Item code cannot be changed after creation" : "Unique identifier — will be converted to uppercase"}
             </div>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
@@ -192,10 +234,65 @@ export default function AddItemPage() {
 
         <hr className="divider" />
 
-        <h3 className="card-title" style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>
-          Stock Controls & Initial Inventory
-        </h3>
-        <div className="form-grid">
+        {!isEditMode && (
+          <>
+            <h3 className="card-title" style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>
+              Stock Controls & Initial Inventory
+            </h3>
+            <div className="form-grid">
+              <div>
+                <label>Reorder Point</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={form.reorderPoint}
+                  onChange={(e) => update("reorderPoint", e.target.value)}
+                />
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                  Low Stock alert triggers when available quantity falls at or below this value
+                </div>
+              </div>
+              <div>
+                <label>Initial Stock Quantity</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={form.initialQuantity}
+                  onChange={(e) => update("initialQuantity", e.target.value)}
+                />
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                  Initial quantity on hand to receive into store upon creation
+                </div>
+              </div>
+              <div>
+                <label>Target Store for Initial Stock</label>
+                <div className="select-wrap">
+                  <select
+                    className="input"
+                    value={form.storeId}
+                    onChange={(e) => update("storeId", e.target.value)}
+                  >
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.type})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronsUpDown size={16} className="select-icon" />
+                </div>
+              </div>
+            </div>
+            <hr className="divider" />
+          </>
+        )}
+
+        {isEditMode && (
           <div>
             <label>Reorder Point</label>
             <input
@@ -211,41 +308,9 @@ export default function AddItemPage() {
               Low Stock alert triggers when available quantity falls at or below this value
             </div>
           </div>
-          <div>
-            <label>Initial Stock Quantity</label>
-            <input
-              className="input"
-              type="number"
-              min="0"
-              step="any"
-              placeholder="0"
-              value={form.initialQuantity}
-              onChange={(e) => update("initialQuantity", e.target.value)}
-            />
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-              Initial quantity on hand to receive into store upon creation
-            </div>
-          </div>
-          <div>
-            <label>Target Store for Initial Stock</label>
-            <div className="select-wrap">
-              <select
-                className="input"
-                value={form.storeId}
-                onChange={(e) => update("storeId", e.target.value)}
-              >
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.type})
-                  </option>
-                ))}
-              </select>
-              <ChevronsUpDown size={16} className="select-icon" />
-            </div>
-          </div>
-        </div>
+        )}
 
-        <hr className="divider" />
+        {isEditMode && <hr className="divider" />}
 
         {error && (
           <div style={{
@@ -259,7 +324,7 @@ export default function AddItemPage() {
         <div className="actions-row">
           {saved && (
             <span style={{ color: "#16a34a", fontWeight: 600, marginRight: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-              <CheckCircle2 size={16} /> Item saved successfully!
+              <CheckCircle2 size={16} /> {isEditMode ? "Changes saved!" : "Item saved successfully!"}
             </span>
           )}
           <button type="button" className="ch-btn ch-btn--outline" onClick={onCancel} disabled={saving}>
@@ -268,7 +333,7 @@ export default function AddItemPage() {
           </button>
           <button type="button" className="ch-btn ch-btn--primary" onClick={onSave} disabled={saving || saved}>
             <Save size={16} />
-            {saving ? "Saving…" : "Save Item"}
+            {saving ? "Saving…" : isEditMode ? "Save Changes" : "Save Item"}
           </button>
         </div>
       </div>

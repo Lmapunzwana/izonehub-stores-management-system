@@ -21,16 +21,18 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { apiFetch } from "../api";
+import ImportItemsModal from "../components/ImportItemsModal";
 
 export default function ItemsPage() {
   const navigate = useNavigate();
-  const { items, user, stores, consumeItems, refreshItems } = useAppData();
-  const { showAlert } = useAppModal();
+  const { items, user, stores, consumeItems, refreshItems, deactivateItem } = useAppData();
+  const { showAlert, showConfirm } = useAppModal();
 
   const isSiteManager = user?.roles?.includes("SITE_STORE_MANAGER") && !user?.roles?.includes("SYSTEM_ADMINISTRATOR") && !user?.roles?.includes("CENTRAL_STORE_MANAGER");
-  
+
   const [activeTab, setActiveTab] = useState(isSiteManager ? "site" : "catalog");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
@@ -40,7 +42,7 @@ export default function ItemsPage() {
   // Pagination State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  
+
   // Site Inventory State
   const [siteInventory, setSiteInventory] = useState([]);
   const [loadingSiteInv, setLoadingSiteInv] = useState(false);
@@ -54,13 +56,15 @@ export default function ItemsPage() {
 
   const [freezeModal, setFreezeModal] = useState(null);
   const [freezeQty, setFreezeQty] = useState("");
-  
+
   const [adjustModal, setAdjustModal] = useState(null);
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
 
   const [busy, setBusy] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
+  const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
 
   function handlePurgeItem(id, name) {
     if (!isAdmin) return;
@@ -69,6 +73,22 @@ export default function ItemsPage() {
         .then(() => refreshItems())
         .catch((err) => showAlert({ title: "Delete Failed", message: err?.message || "Failed to delete item", type: "danger" }));
     }
+  }
+
+  function handleDeactivateItem(id, name) {
+    showConfirm({
+      title: "Deactivate Item",
+      message: `Deactivate "${name}"? It will be hidden from active catalog and store views, but its history is kept. This cannot be undone from within the app — an admin would need to reactivate it directly.`,
+      type: "warning",
+      confirmText: "Yes, Deactivate",
+      onConfirm: async () => {
+        try {
+          await deactivateItem(id);
+        } catch (err) {
+          showAlert({ title: "Deactivate Failed", message: err?.message || "Failed to deactivate item", type: "danger" });
+        }
+      },
+    });
   }
 
   // Available stores
@@ -273,9 +293,19 @@ export default function ItemsPage() {
           badge={activeTab === "site" ? `${visibleSiteInventory.length} inventory records` : `${visibleCatalog.length} items`}
           actions={[
             ...(!isSiteManager ? [{ label: "Add Item", icon: <Plus size={16} />, variant: "primary", onClick: onAdd }] : []),
+            ...(!isSiteManager ? [{ label: "Import", icon: <Upload size={16} />, variant: "outline", onClick: () => setShowImportModal(true) }] : []),
             { label: "Export", icon: <Download size={16} />, variant: "outline", onClick: onExport },
           ]}
         />
+
+        {showImportModal && (
+          <ImportItemsModal
+            stores={stores}
+            categories={categories}
+            onClose={() => setShowImportModal(false)}
+            onComplete={refreshItems}
+          />
+        )}
 
         {/* View Switching Tabs */}
         <div style={{ display: "flex", gap: 12, padding: "12px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -538,6 +568,28 @@ export default function ItemsPage() {
                         >
                           <ShoppingCart size={16} />
                           Reorder
+                        </button>
+                      )}
+                      {(isAdmin || isCentral) && (
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--outline"
+                          onClick={() => navigate(`/items/edit-item/${item.id}`)}
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          title="Edit item details"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {(isAdmin || isCentral) && (
+                        <button
+                          type="button"
+                          className="ch-btn ch-btn--outline"
+                          onClick={() => handleDeactivateItem(item.id, item.name)}
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          title="Deactivate item (soft delete — keeps history, hides it from active use)"
+                        >
+                          Deactivate
                         </button>
                       )}
                       {isAdmin && (

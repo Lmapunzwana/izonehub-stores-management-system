@@ -192,21 +192,36 @@ public class StoreController {
         
         if (!s.isActive()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store is already closed");
         if (s.isClosing()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store is already in the process of closing");
-        
+
+        java.util.List<StoreInventory> inventory = inventoryRepo.findByStoreAndQuantityOnHandGreaterThan(s, java.math.BigDecimal.ZERO);
+
+        // Nothing to return — close immediately instead of entering the
+        // pending-shutdown dance. The "closing" intermediate state exists
+        // only to hold the store open until its stock has somewhere to go;
+        // a store with zero on-hand quantity has nothing to wait for.
+        if (inventory.isEmpty()) {
+            s.close();
+            Store saved = repo.save(s);
+            auditLog.record("STORE", s.getId().toString(), "CLOSED",
+                    "Store '" + s.getName() + "' closed immediately (no on-hand stock to return).", email);
+            return saved;
+        }
+
         s.markClosing();
         Store saved = repo.save(s);
 
         AppUser closedBy = users.findByEmail(email).orElse(null);
         
         // Prepare items to be returned (generate a StockReturn of all on-hand stock)
-        java.util.List<StoreInventory> inventory = inventoryRepo.findByStoreAndQuantityOnHandGreaterThan(s, java.math.BigDecimal.ZERO);
-        if (!inventory.isEmpty() && closedBy != null) {
+        if (closedBy != null) {
             StockReturn sr = new StockReturn(s, closedBy);
             for (StoreInventory inv : inventory) {
                 sr.addLine(new StockReturnLine(inv.getItem(), inv.getQuantityOnHand(), ReturnCondition.SERVICEABLE));
             }
             returnService.createPendingReturn(null, sr);
         }
+        auditLog.record("STORE", s.getId().toString(), "CLOSURE_INITIATED",
+                "Closure initiated by " + email + " for store '" + s.getName() + "' — pending return of on-hand stock.", email);
 
         return saved;
     }
@@ -234,7 +249,22 @@ public class StoreController {
     public void deleteStore(@PathVariable UUID id) {
         Store s = repo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        repo.delete(s);
+
+        // Break AppUser.assignedStore -> Store first. Without this, deleting a
+        // store that ever had a user assigned to it (which happens on every
+        // store creation, via req.assignedUsers()) throws a raw FK violation.
+        java.util.List<AppUser> assignees = users.findByAssignedStore(s);
+        for (AppUser u : assignees) {
+            u.setAssignedStore(null);
+        }
+        users.saveAll(assignees);
+
+        try {
+            repo.delete(s);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This store has existing activity (inventory, requests, receipts, or other records) and cannot be permanently deleted. Close it instead.");
+        }
     }
 
     @PostMapping("/{id}/consume")

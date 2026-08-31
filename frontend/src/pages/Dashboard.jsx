@@ -11,43 +11,48 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { items, projects, materialRequests, discrepancies, expectedReceipts, stores, user } = useAppData();
   const [sub, setSub] = useState(null);
-
-  useEffect(() => {
-    apiFetch("/api/subscription").then(setSub).catch(() => {});
-  }, []);
-
   const isAdmin = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
   const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
+
+  useEffect(() => {
+    // Subscription info is admin/central-only on the backend — fetching it
+    // unconditionally for every role (including site managers) was filling
+    // the audit log with false "unauthorized access" entries on every
+    // dashboard load.
+    if (isAdmin || isCentral) {
+      apiFetch("/api/subscription").then(setSub).catch(() => { });
+    }
+  }, [isAdmin, isCentral]);
   const isSite = user?.roles?.includes("SITE_STORE_MANAGER");
 
   // Stock totals
   const totalAvailable = items.reduce((s, i) => s + (Number(i.available) || 0), 0);
-  const totalReserved  = items.reduce((s, i) => s + (Number(i.reserved)  || 0), 0);
-  const totalIncoming  = items.reduce((s, i) => s + (Number(i.incoming)  || 0), 0);
-  const totalFrozen    = items.reduce((s, i) => s + (Number(i.frozen)    || 0), 0);
+  const totalReserved = items.reduce((s, i) => s + (Number(i.reserved) || 0), 0);
+  const totalIncoming = items.reduce((s, i) => s + (Number(i.incoming) || 0), 0);
+  const totalFrozen = items.reduce((s, i) => s + (Number(i.frozen) || 0), 0);
 
   // Counts
-  const activeProjects       = projects.filter(p => p.status === "Active").length;
-  const pendingApprovals     = materialRequests.filter(r => r.status === "Pending Approval").length;
-  const openDiscrepancies    = discrepancies.filter(d => d.status === "OPEN").length;
-  const pendingGRNs          = expectedReceipts.filter(r => r.statusIndex === 1).length;
-  const closingStores        = stores.filter(s => s.active && s.closing).length;
+  const activeProjects = projects.filter(p => p.status === "Active").length;
+  const pendingApprovals = materialRequests.filter(r => r.status === "Pending Approval").length;
+  const openDiscrepancies = discrepancies.filter(d => d.status === "OPEN").length;
+  const pendingGRNs = expectedReceipts.filter(r => r.statusIndex === 1).length;
+  const closingStores = stores.filter(s => s.active && s.closing).length;
 
   // Store capacity
-  const operationalCount     = sub?.operationalCount ?? stores.filter(s => s.active).length;
-  const allowedSlots         = sub?.allowedStoreSlots ?? 0;
-  const capacityPct          = allowedSlots > 0 ? Math.round((operationalCount / allowedSlots) * 100) : 0;
+  const operationalCount = sub?.operationalCount ?? stores.filter(s => s.active).length;
+  const allowedSlots = sub?.allowedStoreSlots ?? 0;
+  const capacityPct = allowedSlots > 0 ? Math.round((operationalCount / allowedSlots) * 100) : 0;
 
   // Alert lists
-  const lowStockItems        = items.filter(i => i.status?.label === "Low Stock").slice(0, 5);
-  const openDiscList         = discrepancies.filter(d => d.status === "OPEN").slice(0, 4);
-  const closingStoreList     = stores.filter(s => s.active && s.closing).slice(0, 3);
+  const lowStockItems = items.filter(i => i.status?.label === "Low Stock").slice(0, 5);
+  const openDiscList = discrepancies.filter(d => d.status === "OPEN").slice(0, 4);
+  const closingStoreList = stores.filter(s => s.active && s.closing).slice(0, 3);
 
   const stats = [
     { label: "Available Stock", value: totalAvailable.toLocaleString(), icon: <Package size={20} />, color: "#10b981", bg: "#d1fae5" },
-    { label: "Reserved Stock",  value: totalReserved.toLocaleString(),  icon: <Lock size={20} />,    color: "#f59e0b", bg: "#fef3c7" },
-    { label: "Incoming Stock",  value: totalIncoming.toLocaleString(),  icon: <Truck size={20} />,   color: "#2563eb", bg: "#dbeafe" },
-    { label: "Frozen Stock",    value: totalFrozen.toLocaleString(),    icon: <Snowflake size={20} />, color: "#7c3aed", bg: "#ede9fe" },
+    { label: "Reserved Stock", value: totalReserved.toLocaleString(), icon: <Lock size={20} />, color: "#f59e0b", bg: "#fef3c7" },
+    { label: "Incoming Stock", value: totalIncoming.toLocaleString(), icon: <Truck size={20} />, color: "#2563eb", bg: "#dbeafe" },
+    { label: "Frozen Stock", value: totalFrozen.toLocaleString(), icon: <Snowflake size={20} />, color: "#7c3aed", bg: "#ede9fe" },
   ];
 
   return (
@@ -69,9 +74,9 @@ export default function Dashboard() {
 
       {/* Secondary Metric Row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <MetricPill label="Active Projects"    value={activeProjects}    color="#0f172a" onClick={() => navigate("/projects")} />
-        <MetricPill label="Pending Approvals"  value={pendingApprovals}  color={pendingApprovals > 0 ? "#dc2626" : "#10b981"} onClick={() => navigate("/material-requests")} />
-        <MetricPill label="Pending GRNs"       value={pendingGRNs}       color={pendingGRNs > 0 ? "#f59e0b" : "#10b981"} onClick={() => navigate("/expected-receipts")} />
+        <MetricPill label="Active Projects" value={activeProjects} color="#0f172a" onClick={() => navigate("/projects")} />
+        <MetricPill label="Pending Approvals" value={pendingApprovals} color={pendingApprovals > 0 ? "#dc2626" : "#10b981"} onClick={() => navigate("/material-requests")} />
+        <MetricPill label="Pending GRNs" value={pendingGRNs} color={pendingGRNs > 0 ? "#f59e0b" : "#10b981"} onClick={() => navigate("/expected-receipts")} />
         <MetricPill label="Open Discrepancies" value={openDiscrepancies} color={openDiscrepancies > 0 ? "#dc2626" : "#10b981"} onClick={() => navigate("/discrepancies")} />
         {(isAdmin || isCentral) && allowedSlots > 0 && (
           <div
