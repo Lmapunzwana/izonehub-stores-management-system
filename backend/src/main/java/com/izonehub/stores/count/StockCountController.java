@@ -225,6 +225,26 @@ public class StockCountController {
         auditLog.record("STOCK_COUNT", count.getId().toString(), "ADJUSTMENT_RAISED",
                 "Raised adjustment for item '" + line.getItem().getName() + "' due to variance",
                 performedBy.getEmail());
+
+        // The inventory is now correct (adjustTo() above already applied it) — close out
+        // the discrepancy this variance opened so it doesn't sit OPEN and keep escalating
+        // to Central every 48 hours for something that's already been fixed. No inventory
+        // movement here: stock-count discrepancies never freeze stock, so there's nothing
+        // to release (see DiscrepancyController.resolve for why).
+        discrepancyRepo.findAll().stream()
+                .filter(d -> d.getStockCount() != null
+                        && d.getStockCount().getId().equals(count.getId())
+                        && d.getItem().getId().equals(line.getItem().getId())
+                        && d.getStatus() == com.izonehub.stores.movement.DiscrepancyStatus.OPEN)
+                .findFirst()
+                .ifPresent(d -> {
+                    d.resolve(performedBy, "Resolved automatically — corrected via stock adjustment " + reference);
+                    discrepancyRepo.save(d);
+                    auditLog.record("DISCREPANCY", d.getId().toString(), "RESOLVED",
+                            "Auto-resolved: adjustment " + reference + " corrected the variance",
+                            performedBy.getEmail());
+                });
+
         return saved;
     }
 

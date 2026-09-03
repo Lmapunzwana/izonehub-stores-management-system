@@ -135,14 +135,39 @@ public class DiscrepancyController {
         Discrepancy discrepancy = discrepancies.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
+        // Stock-count variances never actually freeze stock (there's no in-transit or
+        // GRN movement to freeze — the "variance" is just a physical-vs-system mismatch
+        // recorded on the count line). The real correction for those happens via
+        // StockCountController.raiseAdjustment(), which calls inventory.adjustTo()
+        // directly and auto-resolves the linked discrepancy itself. Calling
+        // releaseFrozen() here for a count-sourced discrepancy would fail with
+        // "Insufficient frozen stock" (nothing was ever frozen), so require the
+        // adjustment to have been raised first instead of touching inventory here.
+        if (discrepancy.getStockCount() != null) {
+            boolean adjustmentRaised = discrepancy.getStockCount().getLines().stream()
+                    .anyMatch(line -> line != null
+                            && line.getItem().getId().equals(discrepancy.getItem().getId())
+                            && line.getStatus() == com.izonehub.stores.count.StockCountLineStatus.ADJUSTMENT_RAISED);
+            if (!adjustmentRaised) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "This discrepancy came from a stock count — raise a stock adjustment for the "
+                                + "item on that count first (Stock Counts screen), then it will resolve automatically.");
+            }
+            discrepancy.resolve(resolver, req.resolutionNotes());
+            Discrepancy saved = discrepancies.save(discrepancy);
+            resolveLazy(saved);
+            auditLog.record("DISCREPANCY", saved.getId().toString(), "RESOLVED",
+                    "Resolved by " + resolver.getEmail() + " (already corrected via stock adjustment)",
+                    resolver.getEmail());
+            return saved;
+        }
+
         discrepancy.resolve(resolver, req.resolutionNotes());
         com.izonehub.stores.store.Store store;
         if (discrepancy.getReceipt() != null) {
             store = discrepancy.getReceipt().getMaterialRequest().getSourceStore();
         } else if (discrepancy.getGrn() != null) {
             store = discrepancy.getGrn().getExpectedReceipt().getStore();
-        } else if (discrepancy.getStockCount() != null) {
-            store = discrepancy.getStockCount().getStore();
         } else {
             store = discrepancy.getStockReturn().getStore();
         }
