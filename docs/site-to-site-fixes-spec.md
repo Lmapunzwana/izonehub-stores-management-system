@@ -5,30 +5,47 @@ Status: Draft for implementation (patches below implement items 1–5)
 
 ---
 
-## 1. Central visibility on site-to-site Material Requests
+## 1. Central approval on site-to-site Material Requests
 
-**Current behaviour:** `MaterialRequestCommandService.submit()` only notifies
-`sourceStore.getManager()`. If store A requests from store B (B is not
-Central), Central receives no notification at all and has no approval role
-unless a Central Store Manager happens to also be B's assigned manager.
+**Current behaviour (as of the second revision):** for a transfer where
+neither the source nor the requesting store is Central, Central Store
+Manager approval is a hard second gate. Dispatch — and therefore the
+dispatch note PDF, which only ever gets generated as a side effect of a
+successful dispatch — is blocked until Central explicitly approves, on top
+of the source store manager's own approval.
 
-**Decision:** Visibility, not a second approval gate. Central should always
-know a site-to-site transfer is happening, but the approving authority stays
-with the source store's manager (per the existing approve() enforcement).
-Adding a hard second approval step would slow down transfers between two
-site stores for no operational benefit and isn't what was described — the
-requirement was "central must know", not "central must sign off on every
-site transfer."
+**Revision history, for context:**
+- First pass (superseded): visibility only — Central got copied on submit,
+  but the source store manager's approval alone was enough to unblock
+  dispatch.
+- Current: Central approval is now required and blocking, per direct
+  instruction. The visibility notification from the first pass is kept as
+  well (submit-time FYI), plus a second, distinct notification once the
+  source manager has approved and it's specifically Central's turn to act.
 
-**Spec:**
-- On submit, if `sourceStore.getType() != CENTRAL`, also notify every active
-  `CENTRAL_STORE_MANAGER` (cc-style, informational) with the same subject/body
-  the source manager gets, plus a note that they are being copied because the
-  transfer doesn't touch Central stock.
-- No new status, no new approval step, no schema change.
-- If the business later decides Central must gate these approvals too, that's
-  a bigger follow-up (new `PENDING_CENTRAL_APPROVAL` status) — flagged as
-  future work, not built now.
+**Spec (implemented):**
+- New status `PENDING_CENTRAL_APPROVAL` between the source manager's
+  approval and `APPROVED`. `MaterialRequest.approve()` routes here instead
+  of straight to `APPROVED` whenever `sourceStore.type != CENTRAL &&
+  requestingStore.type != CENTRAL`.
+- `POST /{id}/central-approve` (Central/Admin only) is the only way out of
+  `PENDING_CENTRAL_APPROVAL`, into `APPROVED`.
+- `dispatch()` refuses anything not already `APPROVED`, with a clear message
+  when the reason is a pending Central approval.
+- `reject()` works from either `PENDING_APPROVAL` or
+  `PENDING_CENTRAL_APPROVAL`, so Central can also kill a transfer at their
+  stage via the existing reject endpoint — releasing the stock reservation
+  at the source store either way.
+- Requests where either side is Central (normal restocks from Central, and
+  the return-to-central flow from item 2) are entirely unaffected — they
+  never enter `PENDING_CENTRAL_APPROVAL` and keep the original single-
+  approval behaviour.
+- UI: the Issues & Dispatch page shows Central/Admin an Approve/Reject
+  action directly on `PENDING_CENTRAL_APPROVAL` rows, with a Details toggle
+  revealing the requesting store, who raised it, the source store, the
+  source manager who already signed off, and the full item/quantity
+  breakdown. Site managers see the same row as a read-only "waiting on
+  Central" state with no dispatch controls.
 
 ---
 
