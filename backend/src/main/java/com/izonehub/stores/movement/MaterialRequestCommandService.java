@@ -131,8 +131,26 @@ public class MaterialRequestCommandService {
                 inventory.unreserve(request.getSourceStore(), line.getItem(), originallyRequested.subtract(line.getApprovedQuantity()));
             }
         }
-        request.approve(approver);
+        request.approve(approver, requiresCentralGate(request));
         MaterialRequest saved = requests.save(request);
+        if (saved.getStatus() == MaterialRequestStatus.PENDING_CENTRAL_APPROVAL) {
+            notifyRequesterWithSubject(saved,
+                    "Stores System — Material Request Approved, Awaiting Central Confirmation",
+                    saved.getSourceStore().getName() + " has approved your request, but since this is a"
+                            + " transfer between two site stores, Central Store must also confirm it before"
+                            + " dispatch can happen.\n\nWe'll notify you again once Central has reviewed it.");
+            notifyCentralStoreManagers(saved,
+                    "Stores System — Site-to-Site Transfer Awaiting Your Approval",
+                    saved.getRequestingStore().getName() + " has requested stock from "
+                            + saved.getSourceStore().getName() + ", and " + saved.getSourceStore().getName()
+                            + "'s manager has approved it.\n\nDispatch is on hold until Central confirms this"
+                            + " transfer — please log in to review and approve or reject it.");
+            auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "APPROVED_PENDING_CENTRAL",
+                    "Approved by " + approver.getEmail() + " (" + saved.getSourceStore().getName() + " → "
+                            + saved.getRequestingStore().getName() + ") — awaiting Central approval before dispatch",
+                    old, saved.getStatus().name(), approver.getEmail());
+            return saved;
+        }
         notifyRequesterWithSubject(saved,
                 "Stores System — Material Request Approved",
                 "Your material request from " + saved.getSourceStore().getName() + " has been approved\n"
@@ -142,6 +160,35 @@ public class MaterialRequestCommandService {
                 "Approved by " + approver.getEmail()
                         + " (" + saved.getSourceStore().getName() + " → "
                         + saved.getRequestingStore().getName() + ")",
+                old, saved.getStatus().name(), approver.getEmail());
+        return saved;
+    }
+
+    /** Neither side of the transfer is Central — Central still needs to sign off before dispatch. */
+    private boolean requiresCentralGate(MaterialRequest request) {
+        return request.getSourceStore().getType() != StoreType.CENTRAL
+                && request.getRequestingStore().getType() != StoreType.CENTRAL;
+    }
+
+    // ── Central approval (site-to-site transfers only) ─────────────────────────
+
+    @Transactional
+    public MaterialRequest centralApprove(MaterialRequest request, AppUser approver) {
+        String old = request.getStatus().name();
+        request.centralApprove(approver);
+        MaterialRequest saved = requests.save(request);
+
+        notifyRequesterWithSubject(saved,
+                "Stores System — Central Has Approved Your Transfer",
+                "Central Store has confirmed your request from " + saved.getSourceStore().getName()
+                        + ". It's now ready to be dispatched.");
+        notifySourceStoreManager(saved,
+                "Stores System — Central Has Approved This Transfer",
+                "Central Store has confirmed the transfer to " + saved.getRequestingStore().getName()
+                        + " from your store. It's now ready to dispatch.");
+        auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "CENTRAL_APPROVED",
+                "Central-approved by " + approver.getEmail() + " (" + saved.getSourceStore().getName()
+                        + " → " + saved.getRequestingStore().getName() + ") — now dispatchable",
                 old, saved.getStatus().name(), approver.getEmail());
         return saved;
     }
@@ -175,6 +222,12 @@ public class MaterialRequestCommandService {
     public Dispatch dispatch(MaterialRequest request, AppUser dispatchedBy,
                              String collectorName, String collectorEmployeeId,
                              List<BigDecimal> dispatchedQuantities) {
+        if (request.getStatus() != MaterialRequestStatus.APPROVED) {
+            String reason = request.getStatus() == MaterialRequestStatus.PENDING_CENTRAL_APPROVAL
+                    ? "Central Store still needs to approve this site-to-site transfer before it can be dispatched."
+                    : "This request is not fully approved yet (current status: " + request.getStatus() + ").";
+            throw new ResponseStatusException(HttpStatus.CONFLICT, reason);
+        }
         if (dispatchedQuantities.size() != request.getLines().size())
             throw new IllegalArgumentException("Dispatch quantity count must match request lines");
 

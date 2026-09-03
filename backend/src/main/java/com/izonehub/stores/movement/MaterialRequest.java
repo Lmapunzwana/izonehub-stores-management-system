@@ -29,6 +29,13 @@ public class MaterialRequest extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     private AppUser approvedBy;
 
+    // Set only for site-to-site transfers (neither side is Central), where Central Store
+    // Manager sign-off is a second, separate gate after the source store manager's own
+    // approval. Null for every other request — including central-sourced requests and
+    // returns-to-central, which never pass through PENDING_CENTRAL_APPROVAL.
+    @ManyToOne(fetch = FetchType.LAZY)
+    private AppUser centralApprovedBy;
+
     @Column(length = 1000)
     private String rejectionReason;
 
@@ -55,6 +62,7 @@ public class MaterialRequest extends BaseEntity {
     public MaterialRequestStatus getStatus() { return status; }
     public AppUser getRaisedBy() { return raisedBy; }
     public AppUser getApprovedBy() { return approvedBy; }
+    public AppUser getCentralApprovedBy() { return centralApprovedBy; }
     public String getRejectionReason() { return rejectionReason; }
     public String getTransferReason() { return transferReason; }
     public List<MaterialRequestLine> getLines() { return lines; }
@@ -72,14 +80,30 @@ public class MaterialRequest extends BaseEntity {
         status = MaterialRequestStatus.PENDING_APPROVAL;
     }
 
-    public void approve(AppUser approver) {
+    /**
+     * @param requiresCentralApproval true for a site-to-site transfer (neither store is
+     *                                Central) — moves to PENDING_CENTRAL_APPROVAL instead
+     *                                of straight to APPROVED, so dispatch stays blocked
+     *                                until centralApprove() is also called.
+     */
+    public void approve(AppUser approver, boolean requiresCentralApproval) {
         requireStatus(MaterialRequestStatus.PENDING_APPROVAL);
         approvedBy = approver;
+        status = requiresCentralApproval
+                ? MaterialRequestStatus.PENDING_CENTRAL_APPROVAL
+                : MaterialRequestStatus.APPROVED;
+    }
+
+    public void centralApprove(AppUser approver) {
+        requireStatus(MaterialRequestStatus.PENDING_CENTRAL_APPROVAL);
+        centralApprovedBy = approver;
         status = MaterialRequestStatus.APPROVED;
     }
 
     public void reject(AppUser approver, String reason) {
-        requireStatus(MaterialRequestStatus.PENDING_APPROVAL);
+        if (status != MaterialRequestStatus.PENDING_APPROVAL && status != MaterialRequestStatus.PENDING_CENTRAL_APPROVAL) {
+            throw new IllegalStateException("Expected status PENDING_APPROVAL or PENDING_CENTRAL_APPROVAL but was " + status);
+        }
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("Rejection reason is required");
         }

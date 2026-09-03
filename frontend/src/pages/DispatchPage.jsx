@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Send, PackageCheck, FileText } from "lucide-react";
+import { useState, Fragment } from "react";
+import { Send, PackageCheck, FileText, ChevronDown, ChevronUp, ArrowLeftRight } from "lucide-react";
 import CardHeader from "../components/CardHeader";
 import Badge from "../components/Badge";
 import { useAppData } from "../context/AppDataContext";
@@ -11,13 +11,15 @@ const STATUS_TYPE = {
   "In Transit": "warning",
   Received:  "success",
   "Received (Discrepancy)": "danger",
+  "Pending Central Approval": "warning",
 };
 
 export default function DispatchPage() {
-  const { materialRequests, dispatchRequest, markRequestReceived, user } = useAppData();
-  const { showAlert } = useAppModal();
+  const { materialRequests, dispatchRequest, markRequestReceived, centralApproveRequest, rejectRequest, user } = useAppData();
+  const { showAlert, showConfirm } = useAppModal();
   const [collector, setCollector] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const isCentral = user?.roles?.includes("CENTRAL_STORE_MANAGER");
   const isAdmin   = user?.roles?.includes("SYSTEM_ADMINISTRATOR");
@@ -59,6 +61,37 @@ export default function DispatchPage() {
     }
   }
 
+  async function onCentralApprove(r) {
+    setBusyId(r.id);
+    try {
+      await centralApproveRequest(r.id);
+      showAlert({ title: "Approved", message: `${r.sourceStore} → ${r.requestingStore} can now be dispatched.`, type: "success" });
+    } catch (e) {
+      showAlert({ title: "Error", message: e?.message || "Failed to approve.", type: "danger" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function onCentralReject(r) {
+    showConfirm({
+      title: "Reject Transfer?",
+      message: `Reject the ${r.sourceStore} → ${r.requestingStore} transfer? Reserved stock at ${r.sourceStore} will be released.`,
+      type: "danger",
+      confirmText: "Reject",
+      onConfirm: async () => {
+        setBusyId(r.id);
+        try {
+          await rejectRequest(r.id, "Rejected by Central Store");
+        } catch (e) {
+          showAlert({ title: "Error", message: e?.message || "Failed to reject.", type: "danger" });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+  }
+
   async function onMarkReceived(r) {
     setBusyId(r.id);
     try {
@@ -74,10 +107,14 @@ export default function DispatchPage() {
     return r.lines.map(l => `${l.item} × ${l.requested}`).join(", ") || "—";
   }
 
-  // Central/Admin: show approved items to dispatch
+  // Central/Admin: show items awaiting their central approval, ready to dispatch, or already moving
   // Site Manager: show approved (coming soon), in-transit, and received items to track full lifecycle
-  const centralItems = materialRequests.filter(r => r.status === "Approved" || r.status === "In Transit" || r.status === "Received" || r.status === "Received (Discrepancy)");
+  const centralItems = materialRequests.filter(r =>
+    r.status === "Pending Central Approval" ||
+    r.status === "Approved" || r.status === "In Transit" || r.status === "Received" || r.status === "Received (Discrepancy)"
+  );
   const siteItems    = materialRequests.filter(r =>
+    r.status === "Pending Central Approval" ||
     r.status === "Approved" ||
     r.status === "In Transit" ||
     r.status === "Received" ||
@@ -87,6 +124,7 @@ export default function DispatchPage() {
   const rows = (isCentral || isAdmin) ? centralItems : siteItems;
 
   const awaitingDispatch = materialRequests.filter(r => r.status === "Approved").length;
+  const awaitingCentralApproval = materialRequests.filter(r => r.status === "Pending Central Approval").length;
 
   return (
     <div className="page">
@@ -101,9 +139,11 @@ export default function DispatchPage() {
           }
           status={{
             label: (isCentral || isAdmin)
-              ? `${awaitingDispatch} awaiting dispatch`
+              ? (awaitingCentralApproval > 0
+                  ? `${awaitingCentralApproval} site-to-site transfer${awaitingCentralApproval === 1 ? "" : "s"} need your approval`
+                  : `${awaitingDispatch} awaiting dispatch`)
               : `${siteItems.filter(r => r.status === "In Transit").length} in transit`,
-            variant: awaitingDispatch > 0 || siteItems.filter(r => r.status === "In Transit").length > 0 ? "warning" : "success",
+            variant: awaitingCentralApproval > 0 || awaitingDispatch > 0 || siteItems.filter(r => r.status === "In Transit").length > 0 ? "warning" : "success",
           }}
         />
 
@@ -119,14 +159,54 @@ export default function DispatchPage() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.requestNo}>
+              <Fragment key={r.id}>
+              <tr>
                 <td style={{ fontWeight: 600 }}>{r.requestNo}</td>
                 <td>{r.project}</td>
                 <td style={{ fontSize: 13, color: "#64748b" }}>{linesSummary(r)}</td>
                 <td>
                   <Badge type={STATUS_TYPE[r.status] || "default"}>{r.status}</Badge>
+                  {r.status === "Pending Central Approval" && (
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <ArrowLeftRight size={12} /> {r.sourceStore} → {r.requestingStore}
+                    </div>
+                  )}
                 </td>
                 <td>
+                  {/* Site-to-site transfer awaiting Central's own sign-off — dispatch is blocked */}
+                  {r.status === "Pending Central Approval" && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <button
+                        className="ch-btn ch-btn--outline"
+                        style={{ padding: "4px 10px", fontSize: 13 }}
+                        onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                      >
+                        {expandedId === r.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {" "}Details
+                      </button>
+                      {(isCentral || isAdmin) ? (
+                        <>
+                          <button
+                            className="ch-btn ch-btn--primary"
+                            disabled={busyId === r.id}
+                            onClick={() => onCentralApprove(r)}
+                          >
+                            {busyId === r.id ? "Approving…" : "Approve"}
+                          </button>
+                          <button
+                            className="ch-btn ch-btn--danger"
+                            disabled={busyId === r.id}
+                            onClick={() => onCentralReject(r)}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: "#64748b", fontSize: 13 }}>Waiting on Central Store's approval</span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Central Manager: create MIV & dispatch for approved */}
                   {r.status === "Approved" && (isCentral || isAdmin) && (
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -186,6 +266,48 @@ export default function DispatchPage() {
                   )}
                 </td>
               </tr>
+              {expandedId === r.id && r.status === "Pending Central Approval" && (
+                <tr>
+                  <td colSpan={5} style={{ background: "#f8fafc", padding: "14px 20px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, fontSize: 13 }}>
+                      <div>
+                        <div style={{ color: "#94a3b8", marginBottom: 2 }}>Requesting store</div>
+                        <div style={{ fontWeight: 600 }}>{r.requestingStore}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", marginBottom: 2 }}>Requested by</div>
+                        <div style={{ fontWeight: 600 }}>{r.requestedBy}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", marginBottom: 2 }}>Source store</div>
+                        <div style={{ fontWeight: 600 }}>{r.sourceStore}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", marginBottom: 2 }}>Source store manager (already approved)</div>
+                        <div style={{ fontWeight: 600 }}>{r.sourceStoreManager}</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ color: "#94a3b8", marginBottom: 4, fontSize: 13 }}>Items requested</div>
+                      <table className="table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr><th>Item</th><th>Requested</th><th>Approved (by {r.sourceStore})</th></tr>
+                        </thead>
+                        <tbody>
+                          {r.lines.map((l, i) => (
+                            <tr key={i}>
+                              <td>{l.item}{l.uom ? ` (${l.uom})` : ""}</td>
+                              <td>{l.requested}</td>
+                              <td>{l.approved ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
 
             {rows.length === 0 && (

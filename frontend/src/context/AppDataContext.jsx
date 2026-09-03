@@ -24,6 +24,7 @@ const ROLES = [
 const MATERIAL_REQUEST_STATUS_LABEL = {
   DRAFT: "Draft",
   PENDING_APPROVAL: "Pending Approval",
+  PENDING_CENTRAL_APPROVAL: "Pending Central Approval",
   APPROVED: "Approved",
   REJECTED: "Rejected",
   IN_TRANSIT: "In Transit",
@@ -41,6 +42,8 @@ function mapMaterialRequest(r) {
     requestingStore: r.requestingStore?.name || "—",
     requestingStoreId: r.requestingStore?.id || null,
     sourceStore: r.sourceStore?.name || "—",
+    sourceStoreManager: r.sourceStore?.manager?.fullName || "Unassigned",
+    isSiteToSite: r.sourceStore?.type !== "CENTRAL" && r.requestingStore?.type !== "CENTRAL",
     status: MATERIAL_REQUEST_STATUS_LABEL[r.status] || r.status,
     // A request can carry multiple item lines; this is a display summary,
     // not a single flat item/quantity (which the entity doesn't have).
@@ -524,6 +527,19 @@ export function AppDataProvider({ children }) {
     }
   }
 
+  async function centralApproveRequest(id) {
+    try {
+      const req = materialRequests.find((r) => r.requestNo === id || r.id === id);
+      const uuid = req ? req.id : id;
+      await apiFetch(`/api/material-requests/${uuid}/central-approve`, { method: "POST" });
+      const updated = await apiFetch("/api/material-requests");
+      setMaterialRequests(asList(updated).map(mapMaterialRequest));
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
   async function rejectRequest(id, reason) {
     try {
       const req = materialRequests.find((r) => r.requestNo === id || r.id === id);
@@ -557,6 +573,7 @@ export function AppDataProvider({ children }) {
       await refreshItems();
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 
@@ -890,6 +907,7 @@ export function AppDataProvider({ children }) {
     addMaterialRequest,
     approveRequest,
     approveMaterialRequest: approveRequest,
+    centralApproveRequest,
     rejectRequest,
     rejectMaterialRequest: rejectRequest,
     dispatchRequest,

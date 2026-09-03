@@ -232,6 +232,23 @@ public class MaterialRequestController {
         return svc.approve(mr, approver, quantities);
     }
 
+    /**
+     * Second approval gate for site-to-site transfers (neither store is Central).
+     * MaterialRequestCommandService.approve() routes those requests to
+     * PENDING_CENTRAL_APPROVAL instead of APPROVED; dispatch() refuses to run until
+     * this endpoint moves it the rest of the way to APPROVED. For any other request
+     * (source or requesting store is Central) this will 422 — there's nothing to
+     * central-approve because it never left the normal single-approval flow.
+     */
+    @PostMapping("/{id}/central-approve")
+    @Transactional
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER')")
+    public MaterialRequest centralApprove(@PathVariable UUID id, @AuthenticationPrincipal String email) {
+        AppUser approver = currentUser(email);
+        MaterialRequest mr = find(id);
+        return svc.centralApprove(mr, approver);
+    }
+
     @PostMapping("/{id}/reject")
     @Transactional
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
