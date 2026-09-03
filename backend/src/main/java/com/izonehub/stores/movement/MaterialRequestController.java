@@ -303,51 +303,82 @@ public class MaterialRequestController {
         com.izonehub.stores.project.Project project = projects.findById(req.projectId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project not found"));
 
-        MaterialRequest mr = new MaterialRequest(requestingStore, sourceStore, project, submitter, "Standalone Return to Central");
-        for (LineRequest l : req.lines()) {
-            Item item = items.findById(l.itemId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId()));
-            mr.addLine(new MaterialRequestLine(item, l.requestedQuantity()));
-        }
-        
-        MaterialRequest saved = requests.save(mr);
-        saved.submit();
-        
-        // Auto-approve and dispatch
+        List<Item> lineItems = req.lines().stream()
+                .map(l -> items.findById(l.itemId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId())))
+                .toList();
         List<BigDecimal> quantities = req.lines().stream().map(LineRequest::requestedQuantity).toList();
-        svc.approve(saved, submitter, quantities);
-        svc.dispatch(saved, submitter, submitter.getFullName(), "RETURN", quantities);
-        
-        return saved;
+
+        return createAutoApprovedReturn(sourceStore, requestingStore, project, submitter,
+                lineItems, quantities, "Standalone Return to Central");
     }
 
+    /**
+     * Returning against an already-fulfilled Material Request now goes through the same
+     * document trail as a standalone return (create → submit → auto-approve → dispatch,
+     * which produces a real dispatch note) instead of the old ad-hoc StockReturn object,
+     * which updated inventory directly with no paper trail at all. Every return, however
+     * it's started, always lands at Central per how the business actually runs this —
+     * the goods physically sitting at the requesting store (mr.getRequestingStore()) are
+     * what's being given back, so that's the "source" of this reverse leg; Central is the
+     * "requesting" side receiving them.
+     */
     @PostMapping("/{id}/returns")
+    @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR','CENTRAL_STORE_MANAGER','SITE_STORE_MANAGER')")
-    public com.izonehub.stores.issuance.StockReturn recordReturn(@PathVariable UUID id, @Valid @RequestBody ReturnRequest req,
-                                    @AuthenticationPrincipal String email) {
+    public MaterialRequest recordReturn(@PathVariable UUID id, @Valid @RequestBody ReturnRequest req,
+                                        @AuthenticationPrincipal String email) {
         AppUser returnedBy = currentUser(email);
         MaterialRequest mr = find(id);
 
         if (req.lines() == null || req.lines().isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one return line is required");
 
-        // When returning a material request, we are sending stock back to the SOURCE store
-        com.izonehub.stores.issuance.StockReturn stockReturn = new com.izonehub.stores.issuance.StockReturn(mr.getSourceStore(), returnedBy);
-        for (ReturnLineRequest l : req.lines()) {
-            Item item = items.findById(l.itemId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId()));
-            stockReturn.addLine(new com.izonehub.stores.issuance.StockReturnLine(item, l.quantity(), com.izonehub.stores.issuance.ReturnCondition.valueOf(l.condition())));
+        com.izonehub.stores.store.Store centralStore = stores.findByType(com.izonehub.stores.store.StoreType.CENTRAL)
+                .stream().findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No Central store is configured — cannot process a return."));
+
+        if (mr.getRequestingStore().getId().equals(centralStore.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This request already originated from Central — there's nothing to return via this path.");
         }
-        com.izonehub.stores.issuance.StockReturn result = returns.createPendingReturn(null, stockReturn);
-        result.getStore().getName();
-        result.getLines().forEach(l -> { if (l != null) l.getItem().getName(); });
 
-        auditLog.record("STOCK_RETURN", result.getId().toString(), "CREATED",
-                "Recorded return to store '" + result.getStore().getName() + "' by " + returnedBy.getEmail(),
-                returnedBy.getEmail());
+        List<Item> lineItems = req.lines().stream()
+                .map(l -> items.findById(l.itemId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item not found: " + l.itemId())))
+                .toList();
+        List<BigDecimal> quantities = req.lines().stream().map(ReturnLineRequest::quantity).toList();
 
-        return result;
+        return createAutoApprovedReturn(mr.getRequestingStore(), centralStore, mr.getProject(), returnedBy,
+                lineItems, quantities, "Return to Central against request " + mr.getId());
+    }
+
+    /** Shared by standaloneReturn and recordReturn — see recordReturn's javadoc for why. */
+    private MaterialRequest createAutoApprovedReturn(com.izonehub.stores.store.Store givingStore,
+                                                      com.izonehub.stores.store.Store centralStore,
+                                                      com.izonehub.stores.project.Project project,
+                                                      AppUser actor,
+                                                      List<Item> lineItems,
+                                                      List<BigDecimal> quantities,
+                                                      String notes) {
+        MaterialRequest mr = new MaterialRequest(centralStore, givingStore, project, actor, notes);
+        for (int i = 0; i < lineItems.size(); i++) {
+            mr.addLine(new MaterialRequestLine(lineItems.get(i), quantities.get(i)));
+        }
+
+        MaterialRequest saved = requests.save(mr);
+        saved.submit();
+        svc.approve(saved, actor, quantities);
+        svc.dispatch(saved, actor, actor.getFullName(), "RETURN", quantities);
+
+        auditLog.record("MATERIAL_REQUEST", saved.getId().toString(), "RETURN_DISPATCHED",
+                "Return dispatched from " + givingStore.getName() + " to " + centralStore.getName()
+                        + " by " + actor.getEmail() + " — " + notes,
+                actor.getEmail());
+
+        return saved;
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

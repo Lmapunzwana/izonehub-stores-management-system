@@ -619,12 +619,15 @@ export function AppDataProvider({ children }) {
     try {
       const req = materialRequests.find((r) => r.requestNo === requestId || r.id === requestId);
       const uuid = req ? req.id : requestId;
+      // This now creates and auto-dispatches a full Material Request back to Central
+      // (with a dispatch note), rather than a lightweight StockReturn — so it shows up
+      // in Material Requests, not the separate /api/returns list.
       await apiFetch(`/api/material-requests/${uuid}/returns`, {
         method: "POST",
         body: { lines: payloadLines },
       });
-      const updatedReturns = await apiFetch("/api/returns");
-      setReturnsList(asList(updatedReturns).map(mapReturn));
+      const updated = await apiFetch("/api/material-requests");
+      setMaterialRequests(asList(updated).map(mapMaterialRequest));
     } catch (e) {
       console.error(e);
       throw e;
