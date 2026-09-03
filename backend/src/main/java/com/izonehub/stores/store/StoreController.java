@@ -112,6 +112,19 @@ public class StoreController {
 
         Store savedStore = repo.save(new Store(req.name(), type, req.location(), manager));
 
+        // The manager selected above is only linked via Store.manager at this point.
+        // Several permission checks elsewhere (e.g. material request approval) key off
+        // AppUser.assignedStore specifically, so without this the manager can't act on
+        // the store they were just put in charge of until someone manually assigns them
+        // on the Users page. Only auto-assign if they don't already have a home store —
+        // a manager running multiple stores keeps whichever store they were assigned to
+        // first, since assignedStore is a single-value field and overwriting it here
+        // would silently break their access to that other store.
+        if (manager.getAssignedStore() == null) {
+            manager.setAssignedStore(savedStore);
+            users.save(manager);
+        }
+
         if (req.assignedUsers() != null && !req.assignedUsers().isEmpty()) {
             java.util.List<AppUser> assignees = users.findAllById(req.assignedUsers());
             for (AppUser u : assignees) {
