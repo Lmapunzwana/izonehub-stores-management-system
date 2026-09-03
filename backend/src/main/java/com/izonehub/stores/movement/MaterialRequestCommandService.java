@@ -6,7 +6,10 @@ import com.izonehub.stores.inventory.InventoryRepository;
 import com.izonehub.stores.inventory.StoreInventory;
 import com.izonehub.stores.notification.NotificationService;
 import com.izonehub.stores.notification.NotificationType;
+import com.izonehub.stores.store.StoreType;
 import com.izonehub.stores.user.AppUser;
+import com.izonehub.stores.user.Role;
+import com.izonehub.stores.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,7 @@ public class MaterialRequestCommandService {
     private final InventoryRepository       inventoryRepo;
     private final NotificationService       notifications;
     private final AuditLogService           auditLog;
+    private final UserRepository            users;
 
     public MaterialRequestCommandService(MaterialRequestRepository requests,
                                          DispatchRepository dispatches,
@@ -35,7 +39,8 @@ public class MaterialRequestCommandService {
                                          InventoryCommandService inventory,
                                          InventoryRepository inventoryRepo,
                                          NotificationService notifications,
-                                         AuditLogService auditLog) {
+                                         AuditLogService auditLog,
+                                         UserRepository users) {
         this.requests      = requests;
         this.dispatches    = dispatches;
         this.receipts      = receipts;
@@ -43,6 +48,7 @@ public class MaterialRequestCommandService {
         this.inventory     = inventory;
         this.inventoryRepo = inventoryRepo;
         this.notifications = notifications;
+        this.users         = users;
         this.auditLog      = auditLog;
     }
 
@@ -69,6 +75,18 @@ public class MaterialRequestCommandService {
                 saved.getRequestingStore().getName() + " has submitted a material request\n"
                         + "from your store (" + saved.getSourceStore().getName() + ").\n\n"
                         + "Please log in to review and approve or reject the request.");
+        // Site-to-site transfer (source isn't Central): Central doesn't approve this —
+        // that stays with the source store's manager — but Central should always know
+        // it's happening, since it's their stock network being moved around even when
+        // Central stock itself isn't touched.
+        if (saved.getSourceStore().getType() != StoreType.CENTRAL) {
+            notifyCentralStoreManagers(saved,
+                    "Stores System — Site-to-Site Transfer Submitted",
+                    saved.getRequestingStore().getName() + " has requested stock from "
+                            + saved.getSourceStore().getName() + " (a site store, not Central).\n\n"
+                            + "This is for your visibility only — " + saved.getSourceStore().getName()
+                            + "'s manager approves this request, not Central.");
+        }
         return saved;
     }
 
@@ -260,5 +278,15 @@ public class MaterialRequestCommandService {
             notifications.notifyWithSubject(request.getSourceStore().getManager(),
                     NotificationType.MATERIAL_REQUEST, subject, body);
         }
+    }
+
+    private void notifyCentralStoreManagers(MaterialRequest request, String subject, String body) {
+        users.findAll().stream()
+                .filter(u -> u.getRoles().contains(Role.CENTRAL_STORE_MANAGER) && u.isActive())
+                // Don't double-notify someone who is also the source store's manager —
+                // they already got the primary "awaiting approval" notification above.
+                .filter(u -> request.getSourceStore().getManager() == null
+                        || !u.getId().equals(request.getSourceStore().getManager().getId()))
+                .forEach(u -> notifications.notifyWithSubject(u, NotificationType.MATERIAL_REQUEST, subject, body));
     }
 }
