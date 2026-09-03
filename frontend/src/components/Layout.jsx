@@ -21,7 +21,8 @@ import {
   CreditCard,
   FileText,
   BarChart3,
-  Download
+  Download,
+  LayoutGrid
 } from 'lucide-react'
 
 // Nav link groups, shown with visual section separators.
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
     section: "Warehouse",
     links: [
       { label: "Items",             path: "/items",           icon: Package,         badge: "items",           roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
+      { label: "Stock by Store",    path: "/stock-by-store",  icon: LayoutGrid,      badge: null,              roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
       { label: "Expected Receipts", path: "/expected-receipts", icon: ArrowDownToLine, badge: "expectedReceipts", roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"] },
       { label: "Issues & Dispatch", path: "/dispatch",        icon: Truck,           badge: "dispatch",        roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },
       { label: "Returns",           path: "/returns",         icon: Undo2,           badge: "returns",         roles: ["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"] },

@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import ItemsPage from "./pages/ItemsPage";
+import StockByStorePage from "./pages/StockByStorePage";
 import ConsumptionPage from "./pages/ConsumptionPage";
 import ExpectedReceiptsPage from "./pages/ExpectedReceiptsPage";
 import MaterialRequestsPage from "./pages/MaterialRequestsPage";
@@ -45,6 +46,11 @@ export default function App() {
               <Route path="/items" element={
                 <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER", "SITE_STORE_MANAGER"]}>
                   <ItemsPage />
+                </RequireRole>
+              } />
+              <Route path="/stock-by-store" element={
+                <RequireRole role={["SYSTEM_ADMINISTRATOR", "CENTRAL_STORE_MANAGER"]}>
+                  <StockByStorePage />
                 </RequireRole>
               } />
               <Route path="/consumption" element={
